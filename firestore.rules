@@ -1,0 +1,28 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isAdmin() {
+      return request.auth != null && request.auth.token.email.lower() == 'ADMIN_EMAIL_AQUI';
+    }
+    function perfil() {
+      return get(/databases/$(database)/documents/colaboradores/$(request.auth.uid)).data;
+    }
+    function isMembro() {
+      return request.auth != null && (isAdmin() ||
+        (exists(/databases/$(database)/documents/colaboradores/$(request.auth.uid)) && perfil().ativo == true));
+    }
+    function podeEditar() {
+      return isAdmin() || (isMembro() && perfil().papel == 'editor');
+    }
+
+    // cada um lê o próprio perfil (para o app saber se o acesso foi liberado)
+    match /colaboradores/{uid} {
+      allow read: if isMembro() || (request.auth != null && request.auth.uid == uid);
+      allow write: if isAdmin();
+    }
+    match /{col}/{doc=**} {
+      allow read: if col != 'colaboradores' && isMembro();
+      allow write: if col != 'colaboradores' && podeEditar();
+    }
+  }
+}

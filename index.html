@@ -1,0 +1,1216 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f5a32">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<title>Futebol UP Unida</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Futebol">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: app de uma coluna, cabeçalho verde-gramado fixo, abas na base como placar */
+:root {
+  --grass: #0f5a32;
+  --grass-2: #137a43;
+  --chalk: #ffffff;
+  --bg: #eef3ef;
+  --card: #ffffff;
+  --fg: #142019;
+  --muted: #5d6e64;
+  --line: #d7e2da;
+  --soft: #e1ede5;
+  --accent: #f2c230;
+  --accent-fg: #1d1600;
+  --ok: #157a3c;
+  --ok-bg: #dcf2e3;
+  --warn: #9a5b00;
+  --warn-bg: #fdf0d2;
+  --bad: #b3261e;
+  --bad-bg: #fbe1de;
+  --shadow: 0 1px 2px rgba(10,40,20,.08), 0 2px 10px rgba(10,40,20,.05);
+  --display: "Barlow Condensed", "Arial Narrow", system-ui, sans-serif;
+  --body: "Barlow", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --grass: #0c3f24; --grass-2: #136237; --chalk: #f4fbf6;
+    --bg: #0d1611; --card: #16221b; --fg: #e6efe9; --muted: #93a69a;
+    --line: #26362c; --soft: #1d2d23; --accent: #f2c230; --accent-fg: #1d1600;
+    --ok: #6fd795; --ok-bg: #173a24; --warn: #f3c062; --warn-bg: #3a2d10;
+    --bad: #ff8a80; --bad-bg: #3f1b18; --shadow: 0 1px 2px rgba(0,0,0,.4);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --grass: #0c3f24; --grass-2: #136237; --chalk: #f4fbf6;
+  --bg: #0d1611; --card: #16221b; --fg: #e6efe9; --muted: #93a69a;
+  --line: #26362c; --soft: #1d2d23; --accent: #f2c230; --accent-fg: #1d1600;
+  --ok: #6fd795; --ok-bg: #173a24; --warn: #f3c062; --warn-bg: #3a2d10;
+  --bad: #ff8a80; --bad-bg: #3f1b18; --shadow: 0 1px 2px rgba(0,0,0,.4);
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 15px; -webkit-tap-highlight-color: transparent; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 30; background: var(--grass); }
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.num { font-variant-numeric: tabular-nums; }
+
+header.top {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20;
+  background: var(--grass); color: var(--chalk);
+  padding-block: 12px 12px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex; align-items: center; gap: 12px;
+  background-image: repeating-linear-gradient(90deg, transparent 0 46px, rgba(255,255,255,.035) 46px 92px);
+}
+header.top h1 { margin: 0; font-family: var(--display); font-weight: 800; font-size: 24px; letter-spacing: .02em; text-transform: uppercase; flex: 1; line-height: 1; }
+header.top h1 small { display: block; font-family: var(--body); font-weight: 500; font-size: 12px; text-transform: none; letter-spacing: 0; opacity: .8; margin-top: 3px; }
+.iconbtn { background: rgba(255,255,255,.12); border: 0; color: var(--chalk); width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; }
+.iconbtn svg { width: 22px; height: 22px; }
+
+main {
+  max-width: 640px; margin: 0 auto;
+  padding-block: 14px 170px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex; flex-direction: column; gap: 14px;
+}
+
+nav.tabs {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 20;
+  background: var(--card); border-top: 1px solid var(--line);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-area-inset-right, 0px);
+  display: grid; grid-template-columns: repeat(4, 1fr);
+}
+nav.tabs button { background: none; border: 0; padding: 8px 4px 10px; display: flex; flex-direction: column; align-items: center; gap: 3px; color: var(--muted); font-size: 12px; font-weight: 600; }
+nav.tabs button svg { width: 24px; height: 24px; }
+nav.tabs button[aria-selected="true"] { color: var(--grass-2); }
+:root[data-theme="dark"] nav.tabs button[aria-selected="true"] { color: var(--ok); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) nav.tabs button[aria-selected="true"] { color: var(--ok); } }
+
+.card { background: var(--card); border-radius: 16px; box-shadow: var(--shadow); padding: 14px; }
+.section-title { font-family: var(--display); font-weight: 700; font-size: 15px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 6px 2px -4px; display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.section-title span { font-family: var(--body); letter-spacing: 0; text-transform: none; font-weight: 600; }
+
+.monthbar { display: flex; align-items: center; gap: 8px; }
+.monthbar h2 { flex: 1; text-align: center; margin: 0; font-family: var(--display); font-size: 26px; font-weight: 800; text-transform: uppercase; letter-spacing: .02em; }
+.monthbar h2 small { display: block; font-family: var(--body); font-size: 13px; font-weight: 500; color: var(--muted); text-transform: none; letter-spacing: 0; }
+.round { width: 42px; height: 42px; border-radius: 50%; border: 1px solid var(--line); background: var(--card); display: grid; place-items: center; }
+.round svg { width: 20px; height: 20px; }
+
+/* placar */
+.score { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--line); border-radius: 14px; overflow: hidden; margin-top: 12px; }
+.score div { background: var(--soft); padding: 10px 8px; text-align: center; min-width: 0; }
+.score b { display: block; font-family: var(--display); font-weight: 800; font-size: 26px; line-height: 1.05; }
+.score span { font-size: 12px; color: var(--muted); font-weight: 600; }
+.score .ok b { color: var(--ok); } .score .bad b { color: var(--bad); }
+.meter { height: 10px; border-radius: 99px; background: var(--soft); overflow: hidden; margin-top: 12px; }
+.meter i { display: block; height: 100%; background: linear-gradient(90deg, var(--grass-2), var(--ok)); border-radius: 99px; transition: width .4s; }
+.meter-label { display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); margin-top: 6px; gap: 8px; flex-wrap: wrap; }
+.meter-label strong { color: var(--fg); }
+
+.list { display: flex; flex-direction: column; gap: 8px; }
+.row { background: var(--card); border-radius: 14px; box-shadow: var(--shadow); padding: 10px 12px; display: flex; align-items: center; gap: 12px; border: 0; width: 100%; text-align: left; min-height: 58px; }
+.row .main { flex: 1; min-width: 0; }
+.row .name { font-weight: 600; font-size: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row .sub { font-size: 13px; color: var(--muted); margin-top: 1px; }
+.pos { flex: none; width: 38px; height: 34px; border-radius: 10px; background: var(--soft); color: var(--grass-2); display: grid; place-items: center; font-family: var(--display); font-weight: 800; font-size: 17px; }
+:root[data-theme="dark"] .pos { color: var(--ok); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .pos { color: var(--ok); } }
+.pos.g { background: var(--accent); color: var(--accent-fg) !important; }
+.skill { font-family: var(--display); font-weight: 700; font-size: 18px; min-width: 30px; text-align: right; }
+
+.pill { flex: none; font-size: 12px; font-weight: 700; padding: 5px 10px; border-radius: 99px; white-space: nowrap; }
+.pill.ok { background: var(--ok-bg); color: var(--ok); }
+.pill.warn { background: var(--warn-bg); color: var(--warn); }
+.pill.bad { background: var(--bad-bg); color: var(--bad); }
+.pill.mute { background: var(--soft); color: var(--muted); }
+
+.check { flex: none; width: 28px; height: 28px; border-radius: 8px; border: 2px solid var(--line); display: grid; place-items: center; background: var(--card); }
+.check svg { width: 18px; height: 18px; opacity: 0; color: #fff; }
+.row[aria-pressed="true"] .check { background: var(--grass-2); border-color: var(--grass-2); }
+.row[aria-pressed="true"] .check svg { opacity: 1; }
+
+a.btn { text-decoration: none; }
+.btn { border: 0; border-radius: 12px; padding: 12px 16px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 46px; }
+.btn svg { width: 18px; height: 18px; }
+.btn.primary { background: var(--grass-2); color: #fff; }
+.btn.accent { background: var(--accent); color: var(--accent-fg); }
+.btn.ghost { background: var(--soft); color: var(--fg); }
+.btn.danger { background: var(--bad-bg); color: var(--bad); }
+.btn.block { width: 100%; }
+.btn:disabled { opacity: .5; cursor: default; }
+.btnrow { display: flex; gap: 8px; flex-wrap: wrap; }
+.btnrow > * { flex: 1 1 140px; }
+
+.banner { background: var(--warn-bg); color: var(--warn); border-radius: 14px; padding: 12px 14px; font-weight: 600; display: flex; gap: 10px; align-items: center; }
+.banner button { margin-left: auto; }
+.empty { text-align: center; color: var(--muted); padding: 28px 12px; }
+.empty b { display: block; color: var(--fg); font-size: 16px; margin-bottom: 4px; }
+
+.fab-bar { position: fixed; left: 0; right: 0; bottom: calc(64px + env(safe-area-inset-bottom, 0px)); z-index: 15; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 8px; }
+.fab-bar .btn { max-width: 608px; margin: 0 auto; display: flex; width: 100%; box-shadow: 0 6px 18px rgba(10,60,30,.3); flex-direction: column; gap: 0; }
+.fab-bar .btn small { font-weight: 500; font-size: 12px; opacity: .85; }
+
+/* folha (bottom sheet) */
+.sheet-wrap { position: fixed; inset: 0; z-index: 40; background: rgba(5,20,10,.45); display: flex; align-items: flex-end; justify-content: center; }
+.sheet { background: var(--bg); width: 100%; max-width: 640px; max-height: 92%; overflow-y: auto; border-radius: 22px 22px 0 0; padding-block: 8px calc(20px + env(safe-area-inset-bottom, 0px)); padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: flex; flex-direction: column; gap: 14px; animation: up .22s ease-out; }
+@keyframes up { from { transform: translateY(40px); opacity: .6; } }
+@media (prefers-reduced-motion: reduce) { .sheet { animation: none; } .meter i { transition: none; } }
+.grab { width: 44px; height: 5px; border-radius: 9px; background: var(--line); margin: 2px auto 0; }
+.sheet h3 { margin: 0; font-family: var(--display); font-size: 26px; font-weight: 800; text-transform: uppercase; letter-spacing: .02em; display: flex; align-items: center; gap: 10px; }
+.sheet h3 .x { margin-left: auto; }
+.x { width: 38px; height: 38px; border-radius: 50%; border: 0; background: var(--soft); display: grid; place-items: center; }
+.x svg { width: 18px; height: 18px; }
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field > label, .lbl { font-size: 13px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+.input { width: 100%; border: 1.5px solid var(--line); background: var(--card); border-radius: 12px; padding: 12px; font-size: 16px; min-height: 48px; }
+.input:focus { border-color: var(--grass-2); outline: none; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.grid2 > * { min-width: 0; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { border: 1.5px solid var(--line); background: var(--card); border-radius: 99px; padding: 8px 14px; font-weight: 600; font-size: 14px; }
+.chip[aria-pressed="true"] { background: var(--grass-2); border-color: var(--grass-2); color: #fff; }
+.chip.posc { display: flex; align-items: center; gap: 8px; padding: 6px 12px 6px 6px; }
+.chip.posc b { font-family: var(--display); font-weight: 800; background: var(--soft); color: var(--grass-2); border-radius: 99px; min-width: 30px; height: 26px; display: grid; place-items: center; padding: 0 4px; }
+.chip.posc[aria-pressed="true"] b { background: rgba(255,255,255,.2); color: #fff; }
+.skillval { font-family: var(--display); font-weight: 800; font-size: 36px; color: var(--grass-2); text-align: center; line-height: 1; }
+input[type=range] { width: 100%; accent-color: var(--grass-2); height: 30px; }
+.ticks { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); padding: 0 4px; }
+.stepper { display: flex; align-items: center; gap: 12px; }
+.stepper b { font-family: var(--display); font-size: 28px; min-width: 32px; text-align: center; }
+.toggle { display: flex; align-items: center; gap: 12px; background: var(--card); border-radius: 12px; padding: 12px; border: 1.5px solid var(--line); width: 100%; text-align: left; }
+.toggle .main { flex: 1; }
+.toggle .sw { width: 46px; height: 28px; border-radius: 99px; background: var(--line); position: relative; flex: none; transition: background .15s; }
+.toggle .sw::after { content: ""; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: #fff; transition: transform .15s; box-shadow: 0 1px 3px rgba(0,0,0,.25); }
+.toggle[aria-checked="true"] .sw { background: var(--grass-2); }
+.toggle[aria-checked="true"] .sw::after { transform: translateX(18px); }
+.confirm { background: var(--bad-bg); color: var(--bad); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 10px; font-weight: 600; }
+
+.seg { display: grid; grid-template-columns: repeat(3, 1fr); background: var(--soft); border-radius: 12px; padding: 4px; gap: 4px; }
+.seg button { border: 0; background: none; padding: 8px; border-radius: 9px; font-weight: 700; font-size: 13px; color: var(--muted); }
+.seg button[aria-pressed="true"] { background: var(--card); color: var(--fg); box-shadow: var(--shadow); }
+
+/* times */
+.teams { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
+.team { background: var(--card); border-radius: 16px; box-shadow: var(--shadow); overflow: hidden; }
+.team header { background: var(--grass); color: var(--chalk); padding: 10px 14px; display: flex; align-items: baseline; gap: 8px; }
+.team header h4 { margin: 0; font-family: var(--display); font-size: 22px; font-weight: 800; text-transform: uppercase; flex: 1; }
+.team header span { font-size: 12px; opacity: .85; }
+.team.reserve header { background: var(--muted); }
+.team ul { list-style: none; margin: 0; padding: 6px 14px 10px; }
+.team li { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--line); }
+.team li:last-child { border-bottom: 0; }
+.team li .pos { width: 32px; height: 28px; font-size: 15px; }
+.team li span.n { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+
+.event { display: flex; flex-direction: column; gap: 8px; text-align: left; border: 0; width: 100%; }
+.event .top { display: flex; align-items: center; gap: 10px; }
+.event .date { flex: none; width: 52px; border-radius: 12px; background: var(--accent); color: var(--accent-fg); text-align: center; padding: 6px 0; line-height: 1; }
+.event .date b { display: block; font-family: var(--display); font-size: 24px; font-weight: 800; }
+.event .date span { font-size: 11px; font-weight: 700; text-transform: uppercase; }
+.event h4 { margin: 0; font-size: 17px; }
+.toast { position: fixed; left: 50%; bottom: calc(140px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 50; background: var(--fg); color: var(--bg); padding: 10px 16px; border-radius: 12px; font-weight: 600; box-shadow: var(--shadow); max-width: calc(100% - 32px); text-align: center; }
+.row.paid { background: var(--ok-bg); }
+.row .sub.next { color: var(--warn); font-weight: 600; }
+.due { font-weight: 700; color: var(--fg); }
+  .due.late { color: var(--bad); }
+.loading { text-align: center; color: var(--muted); padding: 40px 0; }
+textarea.input { min-height: 140px; font-size: 14px; resize: vertical; }
+.search { position: relative; }
+.search svg { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); width: 18px; height: 18px; color: var(--muted); }
+.search .input { padding-left: 40px; }
+/* base */
+:root { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+body { margin: 0; }
+img { max-width: 100%; }
+[hidden] { display: none !important; }
+/* login */
+.login { position: fixed; inset: 0; z-index: 60; background: var(--grass); display: flex; align-items: center; justify-content: center; padding-block: 24px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); background-image: repeating-linear-gradient(90deg, transparent 0 46px, rgba(255,255,255,.035) 46px 92px); }
+.login form { background: var(--bg); border-radius: 22px; width: 100%; max-width: 380px; padding: 24px 20px; display: flex; flex-direction: column; gap: 14px; box-shadow: 0 20px 50px rgba(0,0,0,.3); }
+.login img { width: 96px; height: 96px; border-radius: 50%; margin: -70px auto 0; box-shadow: 0 0 0 5px var(--bg); }
+.login h2 { margin: 0; text-align: center; font-family: var(--display); font-weight: 800; font-size: 28px; text-transform: uppercase; }
+.login p { margin: 0; text-align: center; color: var(--muted); font-size: 14px; }
+.login .err { color: var(--bad); font-weight: 600; text-align: center; font-size: 14px; }
+.linkbtn { background: none; border: 0; color: var(--grass-2); font-weight: 700; text-decoration: underline; padding: 6px; }
+</style>
+</head>
+<body>
+<header class="top">
+  <img src="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAUDBAQEAwUEBAQFBQUGBwwIBwcHBw8LCwkMEQ8SEhEPERETFhwXExQaFRERGCEYGh0dHx8fExciJCIeJBweHx7/2wBDAQUFBQcGBw4ICA4eFBEUHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh7/wAARCAB4AHgDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD4yooooAKKUDNLnb0oAMY5JxQNvpmkycYpKAHZ9OKTkUZpKAHUcelNpc0ALtyeOabSg4pclsAmgBtFKRj3HrSUAFFFFABSgZoAycDrVizhFxdQW3mrGJJFQu/CrkgZPsM0AQEjoBim19F/8Mx2Z5Pxo+H49vtg/wAaju/2abO3tZZh8ZPAMhjjZ9iXYJbAzgfN3oA+eKKVhgkUlABRRRQAUUUUAFFFFADg3BBwQaRgVOKSnDng0ANooooAcnXORxU1nCbi7it1YKZXVAT0BJxUBGAKu6J/yGbL/r4j/wDQhQB9Nr+xR44ZQy+LfDeCMj5Zv/iKzfFf7H/jPw94Z1PXbnxR4emh0+0lupI41m3MqKWIGVxnivv63/1Ef+6P5Vynxp/5JH4u/wCwLd/+imoA/JfFd/8AAz4W6p8WfFNz4e0fUbKwnt7NrtpLrfsKhlXA2gnOWFcBX0z/AME6P+Szat/2ApP/AEdFQBQ+IH7Jni7wZ4K1bxTfeJdCubbTLZriSKETb3VeoGVAz9a8O8D6EfE/jTRvDi3ItTqd9DaCYpuEfmOF3YyM4z0r9Nf2n/8Ak3/xt/2CZf6V+cnwM/5LT4L/AOw9Z/8Ao5aAPo8/sPXmePiJb/8Agqb/AOOUf8MO3v8A0UW3/wDBU3/xyvtQU1mC9cfnQB8VTfsPaiIyYviHas/YNpbAfmJDXCeOf2Rvij4ft5LrSl07xHCi7itjKVmx7RuBn6Ak1+iCsD05pxGRigD8br+0ubG7ltLu2mt7iFyksUqFHRh1BB5B9qhHFfoj+2P8F9N8beDLzxbo9kkfifSoGm3xKAbyFRlo39WAyVPXjHQ1+dtACn1oo7YooAcwGcVZ0T/kM2X/AF8R/wDoQqoM96t6J/yGLM/9PEf/AKEKAP2Jt/8AUR/7o/lXKfGn/kkfi7/sC3f/AKKaurt/9RH/ALo/lXK/GZS3wk8XKoJJ0W74H/XJqAPyVNfTX/BOf/ksurf9gKT/ANHRV8ymvpr/AIJz/wDJZdXP/UDk/wDR0VAH1r+0/wD8m/8Ajb/sEy/0r85PgZ/yWrwX/wBh6z/9HLX6N/tP/wDJv/jb/sEy/wBK/OT4Gf8AJaPBZ/6j1n/6OWgD9YxXy/8A8FF7ie3+F3h94JpYmOtgEo5UkeRJ6V9QCvPvjj8KtD+LOgWWi69e6haW9ndfakazZQxbYy4O4HjDGgD8zPCvjXxZ4a1aHVND8Q6lZXUDb1ZLltpI7MucMPUHg1+rfgbVLjW/Bei6zdxCG4vtPguZUAwFZ4wxA9smvDPDH7H/AML9I1eG/vJ9c1hIXDi2u7hBCxHOHCKCw9s4NfRMMaRRLHGioiAKqqMAAdAB6UAJMiSIUkAZWG0g9weK/ILxjaxWPivV7OAYigvp4kHoFkYD9BX6rfFrxjp/gL4fav4p1CVVSyt2MSE8yzEYjQe5Yj9fSvyZvbiW6u5rmZt0sztI59WJyf1NAEI6UUoooAKWJikiupwwII+tIOlNoA/Xb4Z6/b+KPh/oPiC2cPHf6fDNkdmKDcPwbI/CtjV7GDU9Lu9Oul3W91A8Eq+qupUj8jXxF+xL8dtP8MRD4e+ML0W2mSzF9MvZTiO3dj80Tn+FWPIPQEnPBzX3JHLHIiujBlYblI5BHqPWgD8zfiL+zn8UPDHiW40+x8L6lrlh5h+yXunwmZJY8/KSF5RsYyD+tfTv7EfwZ174e2Wp+JvFlqLLVtTjS3gsywLwQA7iXxwGY4+XPAXnrivpfA9BQcDtQB5x+0//AMm/+Nv+wTL/AEr85PgZ/wAlo8F/9h6z/wDRy1+gH7Xvivw/oXwQ8Q6bqmpQ299q1k9rYWxOZZ3OPur1wO7dBX5//A3/AJLR4L/7D1n/AOjloA/WOs/XNc0bQoI59a1aw02GRtiSXdwsSs2M4BYgE47VoV8tf8FH/wDklfh7j/mOD/0RJQB71N8Sfh7DGZJPHPhpVHUnVIf/AIquB8dftO/CPwzayGDxCNdugDst9LUylj7ucIB75r80c/T8qMnuaAPVf2gPjb4m+LWrxm+Qadotsxaz02JyyoTxvdv43xxnGB0AHOfKqM0lADqKT+HNFAAvpRg0lOBAGe9ACjI7V6b8Nfjt8T/ANrHZaJ4jll06MYSyvUFxCo9FDcqPZSK+3fDn7Ovwau/D+nXU/gazeWa0ikdvtE/LFASfv+tZXxQ/Z++EOk/DbxLqmneCrSC9tNKuZreQXExKSLGxU4L44IFAHhdn+2n8Qo4Qlx4a8NXEgH3wky5/APWJ4n/a9+LGqwPDp50bRQy432loXkH0MhYD8qqroHwkX+ytRe70Q2WqXugRxQi/YywoFP8AaRmTOY13YyT/AMBp3ifRvgkmnifw7dW0qS6Lrk6rc3LCaG7Rk+yRMA2GK/MEPRxgnNAHifiLXtb8R6rLq2valeanfTHLz3Uhkc+2T0HsOKTwxrF74e8R6dr2n+WLzTrqO6g8xNy+YjBlyO4yOle5+OvCvwqvYLWw0q88MaRJcXunQ2F5Zaq80jQvEDeSXaMzLGEbO0/KSeMGuJ+Nul/D638RaVqfw+1Gxn0O+Ty5baKWQtbyRPsYsJAHAdNj5PGS4HAFAHa/8Ne/GDP+s0H/AMF3/wBlXF/F344+Ofijodpo3iltNa2tbn7TGLa18pt+0rycnjDHivTNW0D4Ir490aCceF7awbxA8KLYatJLFPpnkORLckuRE/m7AMMpOTkADNee2+neCH/aE0qx1ODRrXwm88X2lYbrNuI/L5LOkr4O7rh/y6UAeSYPoaMH0Ne9abb/AAg1XxFqsmh2OiyXkOmW32S01e6nsdNubkykXLoWk3riPbtVn5O4jPAq/oeg/B+Gbxxb2vi6wtItYml0zQGmnkJgRIxIZNwX/VtLtjDSbcoCetAHzrS4NOcENg4/CkzigBD0AopKKAClFJRQB+tXwe8UaJ4u+HOi6xoF/HeWptY4nK/ejkRAHjcdVYHqD7HkEGl+M/8AySTxd/2Bbv8A9FNX5p/BT4s+K/hT4i/tLQLgS2kxAvdPmJ8i6Ueo/hYdnHI9xkH7hi+NXgr4q/BPxY2iXotdWTQrs3OlXLAXEf7lslR/y0T/AGl/EA8UAfnCcnH0oGcYzSHNJQA78aOc8mm0UAOo/Gm0UAOzQck9aQZNL0PNAAAcEk0jHJzQTmkoAKKKKACiiigAp8UskLh4pGjcZwynBGeDzRRQA3NGBjrRRQAlFFFABS8etFFAADjpSUUUAFFFFABRRRQB/9k=" alt="UP Unida de Poá" width="44" height="44" style="border-radius:50%;flex:none;box-shadow:0 0 0 2px rgba(255,255,255,.35)">
+  <h1 id="hdTitle">Futebol de Sexta<small id="hdSub">UP Unida de Poá</small></h1>
+  <button class="iconbtn" id="btnColab" aria-label="Colaboradores">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/></svg>
+  </button>
+  <button class="iconbtn" id="btnSettings" aria-label="Configurações">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+  </button>
+</header>
+
+<div class="login" id="login" hidden>
+  <form id="loginForm" autocomplete="on">
+    <img src="apple-touch-icon.png" alt="UP Unida de Poá">
+    <h2>Futebol de Sexta</h2>
+    <p>Entre com o e-mail e a senha que o organizador te passou.</p>
+    <div class="field"><label for="lgEmail">E-mail</label><input id="lgEmail" class="input" type="email" inputmode="email" autocomplete="username" required></div>
+    <div class="field"><label for="lgPass">Senha</label><input id="lgPass" class="input" type="password" autocomplete="current-password" required></div>
+    <div class="err" id="lgErr" hidden></div>
+    <button class="btn primary block" id="lgBtn" type="submit">Entrar</button>
+    <button class="linkbtn" id="lgForgot" type="button">Esqueci minha senha</button>
+  </form>
+</div>
+<main id="view"><div class="loading">Carregando…</div></main>
+<div id="fab"></div>
+
+<nav class="tabs" role="tablist">
+  <button role="tab" data-tab="caixa" aria-selected="true">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20M6 15h4"/></svg>Mensalidade</button>
+  <button role="tab" data-tab="jogadores" aria-selected="false">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>Jogadores</button>
+  <button role="tab" data-tab="eventos" aria-selected="false">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>Eventos</button>
+  <button role="tab" data-tab="times" aria-selected="false">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 7l4.5 3.3-1.7 5.2H9.2L7.5 10.3z"/><path d="M12 2v5M21.5 9l-5 1.3M18 20l-3.2-4.5M6 20l3.2-4.5M2.5 9l5 1.3"/></svg>Times</button>
+</nav>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="config.js"></script>
+<script>
+(function () {
+  "use strict";
+  // ---------- utilidades ----------
+  const $ = (s, el = document) => el.querySelector(s);
+  const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const MESES = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+  const MES3 = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+  const POS = [["G", "Goleiro"], ["Z", "Zagueiro"], ["LE", "Lateral Esq."], ["LD", "Lateral Dir."], ["V", "Volante"], ["M", "Meia"], ["A", "Atacante"]];
+  const FORMAS = ["Pix", "Dinheiro", "Cartão", "Transferência"];
+  const brl = v => (Number(v) || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  const pad = n => String(n).padStart(2, "0");
+  const todayISO = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
+  const monthKey = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}`;
+  const addMonth = (key, n) => { const [y, m] = key.split("-").map(Number); const d = new Date(y, m - 1 + n, 1); return monthKey(d); };
+  const monthLabel = key => { const [y, m] = key.split("-").map(Number); return `${MESES[m - 1]} ${y}`; };
+  const monthShort = key => { const [y, m] = key.split("-").map(Number); return `${MES3[m - 1]}/${String(y).slice(2)}`; };
+  const fmtDate = iso => { if (!iso) return ""; const [y, m, d] = iso.split("-"); return `${d}/${m}/${y}`; };
+  const fmtDateShort = iso => { if (!iso) return ""; const [, m, d] = iso.split("-"); return `${d}/${m}`; };
+  const dueISO = (key, day) => { const [y, m] = key.split("-").map(Number); const last = new Date(y, m, 0).getDate(); return `${key}-${pad(Math.min(day, last))}`; };
+  const sortName = (a, b) => a.name.localeCompare(b.name, "pt-BR");
+  const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
+  const store = {
+    get(k, d) { try { const v = localStorage.getItem("fut:" + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+    set(k, v) { try { localStorage.setItem("fut:" + k, JSON.stringify(v)); } catch (e) {} }
+  };
+  const ICON = {
+    left: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>',
+    right: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>',
+    x: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>',
+    check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>',
+    plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+    copy: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>',
+    search: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>',
+    shuffle: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>'
+  };
+
+  // ---------- estado ----------
+  const S = {
+    tab: store.get("tab", "caixa"),
+    month: monthKey(new Date()),
+    players: [], payments: [], events: [], avulsos: [], colab: [],
+    settings: null, sorteio: null,
+    loaded: { players: false, payments: false, events: false, settings: false },
+    canWrite: true, db: null, offline: false,
+    present: new Set(), removed: new Set(),
+    perTeam: store.get("perTeam", 6), useSkill: store.get("useSkill", true), usePos: store.get("usePos", true),
+    filter: "todos", q: ""
+  };
+  const cfg = () => Object.assign({ quadra: 0, mensalidade: 0, avulso: 15, vencimento: 10, pix: "", pixTipo: "Celular", banco: "", titular: "", grupo: "Futebol de Sexta" }, S.settings || {});
+  const PIXT = { "CPF": ["000.000.000-00", "numeric"], "E-mail": ["nome@email.com", "email"], "Celular": ["(00) 00000-0000", "tel"], "Aleatória": ["chave aleatória", "text"] };
+  const pixText = c => c.pix ? `\n💠 *Pix (${c.pixTipo})*: ${c.pix}\n` + (c.titular ? `Nome: ${c.titular}\n` : "") + (c.banco ? `Banco: ${c.banco}\n` : "") : "";
+  // presença vale só para o dia do jogo; no dia seguinte começa de novo
+  { const d0 = store.get("day", null); if (d0 && d0.date === todayISO()) { S.present = new Set(d0.ids || []); S.removed = new Set(d0.removed || []); } }
+  // presença do dia fica no banco para todos os colaboradores verem a mesma lista
+  const saveDay = () => {
+    const day = { date: todayISO(), ids: [...S.present], removed: [...S.removed] };
+    store.set("day", day);
+    if (S.db && S.canWrite) S.db.doc("presenca/dia").set(Object.assign({ at: new Date().toISOString() }, day)).catch(() => {});
+  };
+  // fila de prioridade: 0 pagou a mensalidade (por ordem de pagamento), 1 mensalista sem pagar, 2 avulso, 3 criança
+  function prio(p) {
+    const pay = p.mensalista !== false ? payOf(p.id, monthKey(new Date())) : null;
+    const av = S.avulsos.find(a => a.playerId === p.id && a.date === todayISO() && a.paid);
+    const g = p.crianca ? 3 : pay ? 0 : p.mensalista !== false ? 1 : 2;
+    const key = pay ? (pay.paidAt || "") + (pay.createdAt || "") : av ? "0" + (av.createdAt || "") : "~";
+    return { g, key, pay, av };
+  }
+  const byPrio = (a, b) => { const x = prio(a), y = prio(b); return x.g - y.g || x.key.localeCompare(y.key) || sortName(a, b); };
+  const playerById = id => S.players.find(p => p.id === id);
+  const mensalistas = () => S.players.filter(p => p.active !== false && p.mensalista !== false).sort(sortName);
+  const payOf = (pid, month) => S.payments.find(p => p.playerId === pid && p.month === month);
+  const lastPaidMonth = pid => S.payments.filter(p => p.playerId === pid).map(p => p.month).sort().pop();
+  // próximo pagamento: vencimento do mês seguinte ao último pago; sem pagamento, o vencimento do mês exibido
+  function nextDue(pid) {
+    const lp = lastPaidMonth(pid);
+    const iso = lp ? dueISO(addMonth(lp, 1), cfg().vencimento) : dueISO(S.month, cfg().vencimento);
+    return { iso, lp, late: todayISO() > iso };
+  }
+  const avulsosDoMes = month => S.avulsos.filter(a => (a.date || "").slice(0, 7) === month).sort((a, b) => (b.date || "").localeCompare(a.date || "") || (a.name || "").localeCompare(b.name || "", "pt-BR"));
+
+  function statusFor(p, month) {
+    const pay = payOf(p.id, month);
+    if (pay) return { k: "ok", label: "Pago " + fmtDateShort(pay.paidAt), pay };
+    const due = dueISO(month, cfg().vencimento);
+    if (todayISO() > due) return { k: "bad", label: "Atrasado" };
+    return { k: "warn", label: "Em aberto · vence " + fmtDateShort(due) };
+  }
+
+  // ---------- toast / folha ----------
+  let toastT;
+  function toast(msg) {
+    let t = $(".toast"); if (!t) { t = document.createElement("div"); t.className = "toast"; t.setAttribute("role", "status"); document.body.appendChild(t); }
+    t.textContent = msg; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => { t.hidden = true; }, 2400);
+  }
+  function openSheet(html, onMount) {
+    closeSheet();
+    const w = document.createElement("div"); w.className = "sheet-wrap"; w.id = "sheet";
+    w.innerHTML = `<div class="sheet" role="dialog" aria-modal="true"><div class="grab"></div>${html}</div>`;
+    w.addEventListener("click", e => { if (e.target === w || e.target.closest("[data-close]")) closeSheet(); });
+    document.body.appendChild(w); document.body.style.overflow = "hidden";
+    onMount && onMount($(".sheet", w));
+  }
+  function closeSheet() { const s = $("#sheet"); if (s) s.remove(); document.body.style.overflow = ""; }
+  const sheetHead = t => `<h3>${esc(t)}<button class="x" data-close aria-label="Fechar">${ICON.x}</button></h3>`;
+  async function copyText(text, el) {
+    try { await navigator.clipboard.writeText(text); toast("Copiado! Cole no WhatsApp."); }
+    catch (e) { if (el) { el.hidden = false; el.value = text; el.focus(); el.select(); } toast("Selecione o texto e copie."); }
+  }
+  async function write(fn, okMsg) {
+    if (!S.db) { toast("Sem conexão. Verifique a internet."); return false; }
+    if (!S.canWrite) { toast("Você só tem acesso de leitura."); return false; }
+    try { await fn(S.db); if (okMsg) toast(okMsg); return true; }
+    catch (e) {
+      if (e && e.code === "invalid_argument") { S.canWrite = false; toast("Você só tem acesso de leitura."); }
+      else if (e && e.code === "quota_exceeded") toast("Limite de armazenamento atingido.");
+      else toast("Não salvou. Tente de novo.");
+      return false;
+    }
+  }
+
+  // ---------- render ----------
+  function render() {
+    document.querySelectorAll("nav.tabs button").forEach(b => b.setAttribute("aria-selected", String(b.dataset.tab === S.tab)));
+    $("#hdTitle").firstChild.nodeValue = cfg().grupo || "Futebol de Sexta";
+    const v = $("#view"); const fab = $("#fab"); fab.innerHTML = "";
+    if (!S.db || !S.loaded.players) { v.innerHTML = '<div class="loading">Carregando…</div>'; return; }
+    if (S.tab === "caixa") v.innerHTML = viewCaixa();
+    else if (S.tab === "jogadores") v.innerHTML = viewJogadores();
+    else if (S.tab === "eventos") v.innerHTML = viewEventos();
+    else v.innerHTML = viewTimes(fab);
+    if (!S.db) v.insertAdjacentHTML("afterbegin", `<div class="banner">Sem conexão com o banco de dados.</div>`);
+    else if (!S.canWrite) v.insertAdjacentHTML("afterbegin", `<div class="banner">Você está no modo só visualizar. Peça ao organizador para liberar edição.</div>`);
+    const s = $("#q"); if (s && S._focusQ) { s.focus(); s.setSelectionRange(s.value.length, s.value.length); }
+  }
+
+  function viewCaixa() {
+    const c = cfg(); const list = mensalistas(); const m = S.month;
+    const st = list.map(p => ({ p, s: statusFor(p, m) }));
+    const pagos = st.filter(x => x.s.k === "ok");
+    const avs = avulsosDoMes(m);
+    const arrecAv = avs.filter(a => a.paid).reduce((t, a) => t + (Number(a.amount) || 0), 0);
+    const avDev = avs.filter(a => !a.paid);
+    const arrec = pagos.reduce((a, x) => a + (Number(x.s.pay.amount) || 0), 0) + arrecAv;
+    const meta = c.quadra || (c.mensalidade * list.length);
+    const pct = meta ? Math.min(100, Math.round(arrec / meta * 100)) : 0;
+    const devendo = st.filter(x => x.s.k !== "ok");
+    let shown = st;
+    if (S.filter === "pagos") shown = pagos; else if (S.filter === "devendo") shown = devendo;
+    shown.sort((a, b) => (a.s.k === "ok") - (b.s.k === "ok") || sortName(a.p, b.p));
+    const needCfg = !c.quadra && !c.mensalidade;
+    return `
+      ${needCfg ? `<div class="banner">Defina o valor da quadra e da mensalidade.<button class="btn accent" data-act="settings">Definir</button></div>` : ""}
+      <section class="card">
+        <div class="monthbar">
+          <button class="round" data-act="prev" aria-label="Mês anterior">${ICON.left}</button>
+          <h2>${monthLabel(m)}<small>Mensalidade ${brl(c.mensalidade)} · vence dia ${c.vencimento}</small></h2>
+          <button class="round" data-act="next" aria-label="Próximo mês">${ICON.right}</button>
+        </div>
+        <div class="score num">
+          <div class="ok"><b>${pagos.length}</b><span>Pagaram</span></div>
+          <div class="bad"><b>${devendo.length}</b><span>Devendo</span></div>
+          <div><b>${list.length}</b><span>Mensalistas</span></div>
+        </div>
+        <div class="meter" aria-hidden="true"><i style="width:${pct}%"></i></div>
+        <div class="meter-label num"><span>Arrecadado <strong>${brl(arrec)}</strong>${arrecAv ? ` <small>(${brl(arrecAv)} de avulsos)</small>` : ""}</span><span>Quadra <strong>${brl(c.quadra)}</strong>${c.quadra ? ` · ${arrec >= c.quadra ? "sobra " + brl(arrec - c.quadra) : "falta " + brl(c.quadra - arrec)}` : ""}</span></div>
+      </section>
+      <div class="btnrow">
+        <div class="seg" style="flex:2 1 260px">
+          ${[["todos", "Todos"], ["devendo", "Devendo"], ["pagos", "Pagos"]].map(([k, l]) => `<button data-filter="${k}" aria-pressed="${S.filter === k}">${l}</button>`).join("")}
+        </div>
+        <button class="btn ghost" data-act="cobranca" style="flex:1 1 120px">${ICON.copy}Cobrança</button>
+      </div>
+      <div class="list">
+        ${shown.length ? shown.map(({ p, s }) => {
+          const nd = nextDue(p.id);
+          const sub = `<span class="due ${nd.late ? "late" : ""}">${nd.late ? "Venceu em" : "Próximo pagamento:"} ${fmtDate(nd.iso)}</span>${nd.lp ? ` · pago até ${monthShort(nd.lp)}` : " · nunca pagou"}`;
+          return `<button class="row" data-pay="${esc(p.id)}">
+            <span class="pos ${p.pos === "G" ? "g" : ""}">${esc(p.pos || "A")}</span>
+            <span class="main"><div class="name">${esc(p.name)}</div><div class="sub num">${sub}</div></span>
+            <span class="pill ${s.k}">${s.label}</span></button>`;
+        }).join("") : `<div class="empty">${list.length ? "Ninguém nesta lista." : "<b>Nenhum mensalista ainda</b>Cadastre os jogadores na aba Jogadores."}</div>`}
+      </div>
+      <div class="section-title">Avulsos do mês <span class="num">${avs.length} jogo${avs.length === 1 ? "" : "s"} · ${brl(arrecAv)}${avDev.length ? ` · ${avDev.length} devendo` : ""}</span></div>
+      ${S.canWrite ? `<button class="btn accent block" data-act="newAvulso">${ICON.plus}Registrar avulso (${brl(c.avulso)} por jogo)</button>` : ""}
+      <div class="list">
+        ${avs.length ? avs.map(a => `<button class="row" data-avulso="${esc(a.id)}">
+          <span class="pos" style="width:46px;font-size:15px">${fmtDateShort(a.date)}</span>
+          <span class="main"><div class="name">${esc(a.name)}</div><div class="sub num">${brl(a.amount)}${a.paid ? " · " + esc(a.method || "") : ""}</div></span>
+          <span class="pill ${a.paid ? "ok" : "bad"}">${a.paid ? "Pago" : "Devendo"}</span></button>`).join("")
+        : `<div class="empty">Nenhum jogo avulso em ${monthLabel(m).toLowerCase()}. Quem paga por jogo entra aqui.</div>`}
+      </div>`;
+  }
+
+  function viewJogadores() {
+    const q = S.q.trim().toLowerCase();
+    const all = S.players.slice().sort(sortName).filter(p => !q || p.name.toLowerCase().includes(q) || (p.phone || "").replace(/\D/g, "").includes(q.replace(/\D/g, "") || "#") || (p.trazidoPor || "").toLowerCase().includes(q));
+    const nG = S.players.filter(p => p.pos === "G" && p.active !== false).length;
+    return `
+      <div class="section-title">Elenco <span>${S.players.filter(p => p.active !== false).length} ativos · ${nG} goleiros</span></div>
+      <div class="search">${ICON.search}<input id="q" class="input" placeholder="Buscar jogador" value="${esc(S.q)}" autocomplete="off"></div>
+      ${S.canWrite ? `<button class="btn primary block" data-act="newPlayer">${ICON.plus}Novo jogador</button>` : ""}
+      <div class="list">
+        ${all.length ? all.map(p => `<button class="row" data-edit="${esc(p.id)}" ${p.active === false ? 'style="opacity:.55"' : ""}>
+          <span class="pos ${p.pos === "G" ? "g" : ""}">${esc(p.pos || "A")}</span>
+          <span class="main"><div class="name">${esc(p.name)}</div><div class="sub">${esc((POS.find(x => x[0] === p.pos) || POS[6])[1])}${p.crianca ? " · criança" : ""}${p.mensalista === false ? " · avulso" : " · mensalista"}${p.evangelico === "sim" ? " · evangélico" : p.evangelico === "nao" ? " · não evangélico" : ""}${p.active === false ? " · inativo" : ""}</div>${p.phone || p.trazidoPor ? `<div class="sub num">${esc([p.phone, p.trazidoPor ? "veio por " + p.trazidoPor : ""].filter(Boolean).join(" · "))}</div>` : ""}</span>
+          <span class="skill num">${Number(p.skill ?? 5).toFixed(1)}</span></button>`).join("")
+        : `<div class="empty"><b>${q ? "Ninguém com esse nome" : "Nenhum jogador"}</b>${q ? "" : "Toque em Novo jogador para começar."}</div>`}
+      </div>`;
+  }
+
+  function evStats(ev) {
+    const people = ev.people || {}; const ids = Object.keys(people).filter(id => playerById(id) || people[id].guest);
+    const paid = ids.filter(id => people[id].paid);
+    const total = paid.reduce((a, id) => a + (Number(people[id].amount) || Number(ev.price) || 0), 0);
+    return { ids, paid, total, esperado: ids.length * (Number(ev.price) || 0) };
+  }
+  function viewEventos() {
+    const evs = S.events.slice().sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+    return `
+      <div class="section-title">Churrascos e confraternizações <span>${evs.length}</span></div>
+      ${S.canWrite ? `<button class="btn primary block" data-act="newEvent">${ICON.plus}Novo evento</button>` : ""}
+      <div class="list">
+        ${evs.length ? evs.map(ev => {
+          const st = evStats(ev); const [, mm, dd] = (ev.date || "----").split("-");
+          const pct = st.ids.length ? Math.round(st.paid.length / st.ids.length * 100) : 0;
+          return `<button class="card event" data-event="${esc(ev.id)}">
+            <div class="top"><div class="date"><b>${esc(dd || "–")}</b><span>${MES3[Number(mm) - 1] || ""}</span></div>
+              <div style="flex:1;min-width:0"><h4>${esc(ev.name)}</h4><div class="sub num" style="color:var(--muted);font-size:13px">${brl(ev.price)} por pessoa · ${st.ids.length} participantes</div></div>
+              <span class="pill ${st.paid.length === st.ids.length && st.ids.length ? "ok" : "warn"}">${st.paid.length}/${st.ids.length} pagos</span></div>
+            <div class="meter" style="margin-top:2px"><i style="width:${pct}%"></i></div>
+            <div class="meter-label num"><span>Arrecadado <strong>${brl(st.total)}</strong></span><span>Esperado <strong>${brl(st.esperado)}</strong></span></div>
+          </button>`;
+        }).join("") : `<div class="empty"><b>Nenhum evento</b>Crie um churrasco ou confraternização para controlar quem pagou.</div>`}
+      </div>`;
+  }
+
+  function viewTimes(fab) {
+    const act = S.players.filter(p => p.active !== false).sort(byPrio);
+    [...S.present].forEach(id => { if (!act.find(p => p.id === id)) S.present.delete(id); });
+    // quem pagou a mensalidade já entra marcado; desmarcar é manual
+    let changed = false;
+    act.forEach(p => { if (prio(p).g === 0 && !S.removed.has(p.id) && !S.present.has(p.id)) { S.present.add(p.id); changed = true; } });
+    if (changed) saveDay();
+    const n = S.present.size, per = S.perTeam;
+    const cut = Math.floor(n / per) >= 2 ? Math.floor(n / per) * per : n;
+    const fila = act.filter(p => S.present.has(p.id));
+    const posOf = id => fila.findIndex(p => p.id === id);
+    const last = S.sorteio && S.sorteio.teams;
+    const avPres = act.filter(p => S.present.has(p.id) && p.mensalista === false && !S.avulsos.some(a => a.playerId === p.id && a.date === todayISO())).length;
+    fab.innerHTML = `<div class="fab-bar"><button class="btn primary" data-act="draw" ${n < 2 ? "disabled" : ""}>Sortear times<small>${n} jogador${n === 1 ? "" : "es"} selecionado${n === 1 ? "" : "s"}${n > cut ? ` · ${n - cut} no próximo` : ""}</small></button></div>`;
+    const GR = ["Pagaram a mensalidade · ordem de pagamento", "Mensalistas que ainda não pagaram", "Avulsos", "Crianças"];
+    const row = p => {
+      const pr = prio(p), i = posOf(p.id);
+      const tag = pr.pay ? `<span class="pill ok">Pago ${fmtDateShort(pr.pay.paidAt)}</span>` : pr.av ? `<span class="pill ok">Pagou hoje</span>` : "";
+      const fil = i < 0 ? "" : i < cut ? `${i + 1}º na fila` : `${i + 1}º · fica para o próximo`;
+      return `<button class="row ${pr.pay || pr.av ? "paid" : ""}" data-present="${esc(p.id)}" aria-pressed="${S.present.has(p.id)}">
+          <span class="check">${ICON.check}</span>
+          <span class="pos ${p.pos === "G" ? "g" : ""}">${esc(p.pos || "A")}</span>
+          <span class="main"><div class="name">${esc(p.name)}</div>${fil ? `<div class="sub num ${i >= cut ? "next" : ""}">${fil}</div>` : ""}</span>
+          ${tag}</button>`;
+    };
+    const sections = [0, 1, 2, 3].map(g => { const ps = act.filter(p => prio(p).g === g); return ps.length ? `<div class="section-title">${GR[g]} <span>${ps.length}</span></div><div class="list">${ps.map(row).join("")}</div>` : ""; }).join("");
+    return `
+      ${S.canWrite && avPres ? `<button class="btn ghost block" data-act="newAvulso">${ICON.plus}Cobrar ${brl(cfg().avulso)} dos ${avPres} avulsos de hoje</button>` : ""}
+      ${last ? `<button class="btn accent block" data-act="showLast">Ver último sorteio · ${esc(S.sorteio.label || "")}</button>` : ""}
+      <div class="btnrow"><button class="btn primary" data-act="zapLista">${ICON.copy}Enviar lista no WhatsApp</button><button class="btn ghost" data-act="zapColar">${ICON.check}Colar confirmações</button></div>
+      <div class="card" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><div style="flex:1 1 200px;font-size:14px">Quem pagou a mensalidade já entra marcado. Se alguém faltar, desmarque. Avulsos e crianças ficam no fim da fila.</div>
+        <button class="btn ghost" style="min-height:38px;padding:6px 14px" data-act="${n ? "none" : "all"}">${n ? "Desmarcar todos" : "Marcar todos"}</button></div>
+      ${act.length ? sections : `<div class="empty"><b>Nenhum jogador</b>Cadastre o elenco na aba Jogadores.</div>`}`;
+  }
+
+  // ---------- folhas ----------
+  function sheetPayment(pid) {
+    const p = playerById(pid); if (!p) return;
+    const c = cfg(); const m = S.month; const pay = payOf(pid, m);
+    const hist = S.payments.filter(x => x.playerId === pid).sort((a, b) => b.month.localeCompare(a.month)).slice(0, 8);
+    const histHtml = hist.length ? `<div class="field"><span class="lbl">Histórico</span><div class="card" style="padding:4px 14px">${hist.map(h => `<div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)" class="num"><b style="flex:1">${monthLabel(h.month)}</b><span>${brl(h.amount)}</span><span style="color:var(--muted)">${fmtDateShort(h.paidAt)} · ${esc(h.method || "")}</span></div>`).join("")}</div></div>` : "";
+    if (pay) {
+      openSheet(`${sheetHead(p.name)}
+        <div class="card"><div class="pill ok" style="display:inline-block">Pago</div>
+          <p class="num" style="margin:10px 0 0;font-size:16px"><b>${monthLabel(m)}</b><br>${brl(pay.amount)} via ${esc(pay.method)} em ${fmtDate(pay.paidAt)}</p>
+          <p class="num" style="margin:10px 0 0;font-size:16px">${nextDue(pid).late ? "Venceu em" : "Próximo pagamento:"} <b>${fmtDate(nextDue(pid).iso)}</b></p></div>
+        ${histHtml}
+        ${S.canWrite ? `<div id="undoBox"><button class="btn danger block" data-undo>Desfazer pagamento</button></div>` : ""}`, el => {
+        const b = $("[data-undo]", el); if (!b) return;
+        b.onclick = () => {
+          $("#undoBox", el).innerHTML = `<div class="confirm">Apagar o pagamento de ${esc(p.name)} em ${monthLabel(m)}?<div class="btnrow"><button class="btn ghost" data-close>Cancelar</button><button class="btn danger" id="undoYes" style="background:var(--bad);color:#fff">Apagar</button></div></div>`;
+          $("#undoYes", el).onclick = async () => { if (await write(db => db.doc("payments/" + pay.id).delete(), "Pagamento removido")) closeSheet(); };
+        };
+      });
+      return;
+    }
+    let months = 1, method = store.get("method", "Pix");
+    openSheet(`${sheetHead(p.name)}
+      <div class="pill ${statusFor(p, m).k}" style="align-self:flex-start">${statusFor(p, m).label} · ${monthLabel(m)}</div>
+      <div class="num" style="font-size:15px">${nextDue(pid).lp ? `Pago até <b>${monthLabel(nextDue(pid).lp)}</b>. ` : ""}${nextDue(pid).late ? "Venceu em" : "Próximo pagamento:"} <b>${fmtDate(nextDue(pid).iso)}</b></div>
+      ${S.canWrite ? `
+      <div class="grid2">
+        <div class="field"><label for="payVal">Valor por mês</label><input id="payVal" class="input num" inputmode="decimal" value="${String(c.mensalidade || "").replace(".", ",")}" placeholder="0,00"></div>
+        <div class="field"><label for="payDate">Data do pagamento</label><input id="payDate" class="input" type="date" value="${todayISO()}"></div>
+      </div>
+      <div class="field"><span class="lbl">Forma de pagamento</span><div class="chips" id="methods">${FORMAS.map(f => `<button class="chip" data-m="${f}" aria-pressed="${f === method}">${f}</button>`).join("")}</div></div>
+      <div class="field"><span class="lbl">Quantos meses está pagando</span>
+        <div class="stepper"><button class="round" id="mMinus" aria-label="Menos">−</button><b id="mN">1</b><button class="round" id="mPlus" aria-label="Mais">+</button><span id="mRange" style="color:var(--muted);font-size:14px"></span></div></div>
+      <button class="btn primary block" id="paySave">${ICON.check}Registrar pagamento</button>` : ""}
+      ${histHtml}`, el => {
+      if (!S.canWrite) return;
+      const upd = () => {
+        $("#mN", el).textContent = months;
+        const ms = []; for (let i = 0; i < months; i++) ms.push(addMonth(m, i));
+        const skip = ms.filter(k => payOf(pid, k)).length;
+        $("#mRange", el).textContent = (months > 1 ? `${monthShort(ms[0])} a ${monthShort(ms[ms.length - 1])}${skip ? ` (${skip} já pago)` : ""}` : monthLabel(m)) + ` · depois vence ${fmtDateShort(dueISO(addMonth(ms[ms.length - 1], 1), cfg().vencimento))}`;
+      };
+      upd();
+      $("#mMinus", el).onclick = () => { months = Math.max(1, months - 1); upd(); };
+      $("#mPlus", el).onclick = () => { months = Math.min(12, months + 1); upd(); };
+      $("#methods", el).onclick = e => { const b = e.target.closest("[data-m]"); if (!b) return; method = b.dataset.m; store.set("method", method); el.querySelectorAll("[data-m]").forEach(x => x.setAttribute("aria-pressed", String(x === b))); };
+      $("#paySave", el).onclick = async () => {
+        const amount = parseFloat(($("#payVal", el).value || "0").replace(/\./g, "").replace(",", ".")) || 0;
+        const paidAt = $("#payDate", el).value || todayISO();
+        const btn = $("#paySave", el); btn.disabled = true;
+        const ok = await write(async db => {
+          for (let i = 0; i < months; i++) {
+            const k = addMonth(m, i); if (payOf(pid, k)) continue;
+            await db.doc(`payments/${k}_${pid}`).set({ playerId: pid, month: k, amount, paidAt, method, createdAt: new Date().toISOString() });
+          }
+        }, months > 1 ? `${months} meses registrados` : "Pagamento registrado");
+        if (ok) closeSheet(); else btn.disabled = false;
+      };
+    });
+  }
+
+  function sheetPlayer(pid) {
+    const p = pid ? playerById(pid) : null;
+    const d = Object.assign({ name: "", skill: 5, pos: "A", mensalista: true, active: true, phone: "", trazidoPor: "", evangelico: "", igreja: "", obs: "" }, p || {});
+    const seg = (id, opts, cur) => `<div class="seg" id="${id}" style="grid-template-columns:repeat(${opts.length},1fr)">${opts.map(([v, l]) => `<button type="button" data-v="${v}" aria-pressed="${cur === v}">${l}</button>`).join("")}</div>`;
+    const others = S.players.filter(x => !p || x.id !== p.id).sort(sortName);
+    openSheet(`${sheetHead(p ? "Editar jogador" : "Novo jogador")}
+      <div class="field"><label for="plName">Nome</label><input id="plName" class="input" placeholder="Ex: Pedro" value="${esc(d.name)}" autocomplete="off"></div>
+      <div class="field"><label for="plPhone">Telefone / WhatsApp</label><input id="plPhone" class="input num" type="tel" inputmode="tel" placeholder="(00) 00000-0000" value="${esc(d.phone)}" autocomplete="off"></div>
+      <div class="field"><span class="lbl">Categoria</span>${seg("plCat", [["adulto", "Adulto"], ["crianca", "Criança"]], d.crianca ? "crianca" : "adulto")}</div>
+      <div class="field"><span class="lbl">Como paga</span>${seg("plTipo", [["mensal", "Mensalista"], ["avulso", "Avulso (por jogo)"]], d.mensalista === false ? "avulso" : "mensal")}</div>
+      <div class="field"><label for="plBy">Veio por quem? (quem trouxe)</label><input id="plBy" class="input" list="plByList" placeholder="Nome de quem convidou" value="${esc(d.trazidoPor)}" autocomplete="off">
+        <datalist id="plByList">${others.map(x => `<option value="${esc(x.name)}"></option>`).join("")}</datalist></div>
+      <div class="field"><span class="lbl">É evangélico?</span>${seg("plEv", [["sim", "Sim"], ["nao", "Não"], ["", "Não perguntei"]], d.evangelico || "")}</div>
+      <div class="field" id="plIgBox" ${d.evangelico === "sim" ? "" : "hidden"}><label for="plIg">Qual igreja?</label><input id="plIg" class="input" placeholder="Opcional" value="${esc(d.igreja)}" autocomplete="off"></div>
+      <div class="field"><label for="plObs">Observações</label><input id="plObs" class="input" placeholder="Opcional" value="${esc(d.obs)}" autocomplete="off"></div>
+      <div class="field"><span class="lbl">Habilidade</span><div class="skillval num" id="skVal">${Number(d.skill).toFixed(1)}</div>
+        <input id="plSkill" type="range" min="0" max="10" step="0.5" value="${d.skill}" aria-label="Habilidade de 0 a 10"><div class="ticks num">${[0,1,2,3,4,5,6,7,8,9,10].map(i => `<span>${i}</span>`).join("")}</div></div>
+      <div class="field"><span class="lbl">Posição</span><div class="chips" id="plPos">${POS.map(([k, l]) => `<button class="chip posc" data-p="${k}" aria-pressed="${d.pos === k}"><b>${k}</b>${l}</button>`).join("")}</div></div>
+      <button class="toggle" id="plAct" role="switch" aria-checked="${d.active !== false}"><span class="main"><b>Ativo</b><div style="font-size:13px;color:var(--muted)">Inativos somem do sorteio e da cobrança</div></span><span class="sw"></span></button>
+      <button class="btn primary block" id="plSave">Gravar</button>
+      ${p ? `<div id="delBox"><button class="btn danger block" id="plDel">Excluir jogador</button></div>` : ""}`, el => {
+      const name = $("#plName", el); if (!p) setTimeout(() => name.focus(), 50);
+      $("#plSkill", el).oninput = e => { $("#skVal", el).textContent = Number(e.target.value).toFixed(1); };
+      $("#plPos", el).onclick = e => { const b = e.target.closest("[data-p]"); if (!b) return; d.pos = b.dataset.p; el.querySelectorAll("[data-p]").forEach(x => x.setAttribute("aria-pressed", String(x === b))); };
+      let tipo = d.mensalista === false ? "avulso" : "mensal", ev = d.evangelico || "", cat = d.crianca ? "crianca" : "adulto";
+      $("#plCat", el).onclick = e => { const b = e.target.closest("[data-v]"); if (!b) return; cat = b.dataset.v; el.querySelectorAll("#plCat [data-v]").forEach(x => x.setAttribute("aria-pressed", String(x === b))); };
+      $("#plTipo", el).onclick = e => { const b = e.target.closest("[data-v]"); if (!b) return; tipo = b.dataset.v; el.querySelectorAll("#plTipo [data-v]").forEach(x => x.setAttribute("aria-pressed", String(x === b))); };
+      $("#plEv", el).onclick = e => { const b = e.target.closest("[data-v]"); if (!b) return; ev = b.dataset.v; el.querySelectorAll("#plEv [data-v]").forEach(x => x.setAttribute("aria-pressed", String(x === b))); $("#plIgBox", el).hidden = ev !== "sim"; };
+      ["#plAct"].forEach(s => { $(s, el).onclick = e => { const t = e.currentTarget; t.setAttribute("aria-checked", String(t.getAttribute("aria-checked") !== "true")); }; });
+      $("#plSave", el).onclick = async () => {
+        const nm = name.value.trim(); if (!nm) { name.focus(); toast("Escreva o nome."); return; }
+        const id = p ? p.id : uid();
+        const body = { name: nm, skill: Number($("#plSkill", el).value), pos: d.pos, mensalista: tipo === "mensal", crianca: cat === "crianca", phone: $("#plPhone", el).value.trim(), trazidoPor: $("#plBy", el).value.trim(), evangelico: ev, igreja: ev === "sim" ? $("#plIg", el).value.trim() : "", obs: $("#plObs", el).value.trim(), active: $("#plAct", el).getAttribute("aria-checked") === "true" };
+        if (await write(db => db.doc("players/" + id).set(body), p ? "Jogador atualizado" : "Jogador cadastrado")) closeSheet();
+      };
+      const del = $("#plDel", el);
+      if (del) del.onclick = () => {
+        $("#delBox", el).innerHTML = `<div class="confirm">Excluir ${esc(p.name)}? O histórico de pagamentos continua salvo. Para só tirar da lista, desmarque "Ativo".<div class="btnrow"><button class="btn ghost" data-close>Cancelar</button><button class="btn danger" id="delYes" style="background:var(--bad);color:#fff">Excluir</button></div></div>`;
+        $("#delYes", el).onclick = async () => { if (await write(db => db.doc("players/" + p.id).delete(), "Jogador excluído")) closeSheet(); };
+      };
+    });
+  }
+
+  function sheetSettings() {
+    const c = cfg(); const n = mensalistas().length;
+    openSheet(`${sheetHead("Configurações")}
+      <div class="field"><label for="stGrupo">Nome do grupo</label><input id="stGrupo" class="input" value="${esc(c.grupo)}"></div>
+      <div class="grid2">
+        <div class="field"><label for="stQuadra">Quadra por mês</label><input id="stQuadra" class="input num" inputmode="decimal" placeholder="0,00" value="${c.quadra ? String(c.quadra).replace(".", ",") : ""}"></div>
+        <div class="field"><label for="stMens">Mensalidade</label><input id="stMens" class="input num" inputmode="decimal" placeholder="0,00" value="${c.mensalidade ? String(c.mensalidade).replace(".", ",") : ""}"></div>
+      </div>
+      <div class="field"><label for="stAv">Valor avulso por jogo</label><input id="stAv" class="input num" inputmode="decimal" placeholder="15,00" value="${String(c.avulso).replace(".", ",")}"></div>
+      <button class="btn ghost" id="stDiv">Dividir quadra entre ${n} mensalistas</button>
+      <div class="grid2">
+        <div class="field"><label for="stJogo">Dia do jogo</label><select id="stJogo" class="input">${DIAS.map((d, i) => `<option value="${i}" ${Number(c.diaJogo ?? 5) === i ? "selected" : ""}>${d}</option>`).join("")}</select></div>
+        <div class="field"><label for="stVenc">Dia do vencimento</label><input id="stVenc" class="input num" type="number" min="1" max="31" value="${c.vencimento}"></div>
+      </div>
+      <div class="card" style="display:flex;flex-direction:column;gap:12px">
+        <span class="lbl">Pix para receber</span>
+        <div class="field"><span style="font-size:13px;color:var(--muted)">Tipo da chave</span><div class="chips" id="stPixTipo">${Object.keys(PIXT).map(k => `<button class="chip" data-t="${k}" aria-pressed="${c.pixTipo === k}">${k}</button>`).join("")}</div></div>
+        <div class="field"><label for="stPix">Chave Pix</label><input id="stPix" class="input" value="${esc(c.pix)}" placeholder="${PIXT[c.pixTipo] ? PIXT[c.pixTipo][0] : ""}" inputmode="${PIXT[c.pixTipo] ? PIXT[c.pixTipo][1] : "text"}" autocomplete="off"></div>
+        <div class="grid2">
+          <div class="field"><label for="stBanco">Banco</label><input id="stBanco" class="input" value="${esc(c.banco)}" placeholder="Ex: Nubank"></div>
+          <div class="field"><label for="stTitular">Nome no banco</label><input id="stTitular" class="input" value="${esc(c.titular)}" placeholder="Titular da conta"></div>
+        </div>
+      </div>
+      ${S.canWrite ? `<button class="btn primary block" id="stSave">Salvar</button>` : ""}
+      <div class="card" style="display:flex;flex-direction:column;gap:10px">
+        <span class="lbl">Conta</span>
+        <div style="font-size:14px">Conectado como <b>${esc(S.me ? S.me.email : "")}</b>${S.isAdmin ? " · administrador" : S.canWrite ? " · colaborador" : " · só visualiza"}</div>
+        ${S.isAdmin ? `<div class="btnrow"><button class="btn ghost" id="stExport">Baixar backup</button><label class="btn ghost" for="stImport" style="cursor:pointer">Restaurar backup</label></div><input id="stImport" type="file" accept=".json,application/json" hidden><div id="stImpMsg" style="font-size:13px"></div>` : ""}
+        <button class="btn danger block" id="stLogout">Sair</button>
+      </div>
+      <p style="margin:0;color:var(--muted);font-size:13px">Dica: no iPhone, abra no Safari, toque em Compartilhar e depois em "Adicionar à Tela de Início" para usar como aplicativo.</p>`, el => {
+      const num = s => parseFloat(String(s || "0").replace(/\./g, "").replace(",", ".")) || 0;
+      $("#stDiv", el).onclick = () => { const q = num($("#stQuadra", el).value); if (!q || !n) { toast("Informe o valor da quadra."); return; } $("#stMens", el).value = (Math.ceil(q / n * 100) / 100).toFixed(2).replace(".", ","); };
+      $("#stLogout", el).onclick = () => { closeSheet(); firebase.auth().signOut(); };
+      const ex = $("#stExport", el); if (ex) ex.onclick = exportBackup;
+      const im = $("#stImport", el); if (im) im.onchange = () => importBackup(im.files[0], $("#stImpMsg", el));
+      let pixTipo = PIXT[c.pixTipo] ? c.pixTipo : "Celular";
+      $("#stPixTipo", el).onclick = e => { const b = e.target.closest("[data-t]"); if (!b) return; pixTipo = b.dataset.t; el.querySelectorAll("#stPixTipo [data-t]").forEach(x => x.setAttribute("aria-pressed", String(x === b))); const i = $("#stPix", el); i.placeholder = PIXT[pixTipo][0]; i.inputMode = PIXT[pixTipo][1]; i.focus(); };
+      const sv = $("#stSave", el);
+      if (sv) sv.onclick = async () => {
+        const body = { grupo: $("#stGrupo", el).value.trim() || "Futebol de Sexta", quadra: num($("#stQuadra", el).value), mensalidade: num($("#stMens", el).value), avulso: num($("#stAv", el).value) || 15, vencimento: Math.min(31, Math.max(1, parseInt($("#stVenc", el).value, 10) || 10)), pix: $("#stPix", el).value.trim(), pixTipo, diaJogo: Number($("#stJogo", el).value), banco: $("#stBanco", el).value.trim(), titular: $("#stTitular", el).value.trim() };
+        if (await write(db => db.doc("config/main").set(body), "Configurações salvas")) closeSheet();
+      };
+    });
+  }
+
+  function sheetCobranca() {
+    const c = cfg(); const m = S.month; const list = mensalistas();
+    const pagos = list.filter(p => payOf(p.id, m)); const dev = list.filter(p => !payOf(p.id, m));
+    const txt = `⚽ *${c.grupo}* — Mensalidade ${monthLabel(m)}\n` +
+      `Valor: ${brl(c.mensalidade)} · vence ${fmtDate(dueISO(m, c.vencimento))}\n` + pixText(c) +
+      `\n✅ Pagos (${pagos.length}):\n${pagos.map(p => "• " + p.name).join("\n") || "—"}\n` +
+      `\n⏳ Faltam pagar (${dev.length}):\n${dev.map(p => "• " + p.name).join("\n") || "Ninguém! 🙌"}`;
+    openSheet(`${sheetHead("Cobrança")}
+      ${c.pix ? `<div class="card" style="display:flex;align-items:center;gap:12px"><div style="flex:1;min-width:0"><div class="lbl">Pix · ${esc(c.pixTipo)}</div><div style="font-weight:700;font-size:17px;word-break:break-all">${esc(c.pix)}</div><div style="color:var(--muted);font-size:13px">${esc([c.titular, c.banco].filter(Boolean).join(" · "))}</div></div><button class="btn ghost" id="cbPix">${ICON.copy}Chave</button></div>` : `<div class="banner">Cadastre a chave Pix na engrenagem para ela aparecer na cobrança.</div>`}
+      <textarea id="cbTxt" class="input" readonly>${esc(txt)}</textarea>
+      <button class="btn primary block" id="cbCopy">${ICON.copy}Copiar para o WhatsApp</button>`, el => {
+      $("#cbCopy", el).onclick = () => copyText(txt, $("#cbTxt", el));
+      const cp = $("#cbPix", el); if (cp) cp.onclick = () => copyText(c.pix, $("#cbTxt", el));
+    });
+  }
+
+  function sheetEvent(evId) {
+    const ev = evId ? S.events.find(e => e.id === evId) : null;
+    if (!ev) {
+      openSheet(`${sheetHead("Novo evento")}
+        <div class="field"><label for="evName">Nome</label><input id="evName" class="input" placeholder="Ex: Churrasco de fim de ano"></div>
+        <div class="grid2">
+          <div class="field"><label for="evDate">Data</label><input id="evDate" class="input" type="date" value="${todayISO()}"></div>
+          <div class="field"><label for="evPrice">Valor por pessoa</label><input id="evPrice" class="input num" inputmode="decimal" placeholder="0,00"></div>
+        </div>
+        <button class="toggle" id="evAll" role="switch" aria-checked="true"><span class="main"><b>Incluir todos os ativos</b><div style="font-size:13px;color:var(--muted)">Depois você tira quem não vai</div></span><span class="sw"></span></button>
+        <button class="btn primary block" id="evSave">Criar evento</button>`, el => {
+        $("#evAll", el).onclick = e => { const t = e.currentTarget; t.setAttribute("aria-checked", String(t.getAttribute("aria-checked") !== "true")); };
+        $("#evSave", el).onclick = async () => {
+          const name = $("#evName", el).value.trim(); if (!name) { toast("Dê um nome ao evento."); $("#evName", el).focus(); return; }
+          const price = parseFloat(($("#evPrice", el).value || "0").replace(/\./g, "").replace(",", ".")) || 0;
+          const people = {};
+          if ($("#evAll", el).getAttribute("aria-checked") === "true") S.players.filter(p => p.active !== false).forEach(p => { people[p.id] = { paid: false }; });
+          const id = uid(); const body = { name, date: $("#evDate", el).value, price, people, createdAt: new Date().toISOString() };
+          if (await write(db => db.doc("events/" + id).set(body), "Evento criado")) {
+            if (!S.events.find(x => x.id === id)) S.events = S.events.concat([Object.assign({}, body, { id })]);
+            sheetEvent(id);
+          }
+        };
+      });
+      return;
+    }
+    const people = ev.people || {};
+    const ids = Object.keys(people).filter(id => playerById(id) || people[id].guest);
+    const out = S.players.filter(p => p.active !== false && !people[p.id]).sort(sortName);
+    const st = evStats(ev);
+    const nameOf = id => (playerById(id) || {}).name || people[id].guest || "?";
+    ids.sort((a, b) => (people[a].paid === true) - (people[b].paid === true) || nameOf(a).localeCompare(nameOf(b), "pt-BR"));
+    openSheet(`${sheetHead(ev.name)}
+      <div class="card"><div class="meter-label num" style="margin:0"><span>${fmtDate(ev.date)} · <strong>${brl(ev.price)}</strong> por pessoa</span><span>${st.paid.length}/${st.ids.length} pagos</span></div>
+        <div class="meter"><i style="width:${st.ids.length ? st.paid.length / st.ids.length * 100 : 0}%"></i></div>
+        <div class="meter-label num"><span>Arrecadado <strong>${brl(st.total)}</strong></span><span>Falta <strong>${brl(Math.max(0, st.esperado - st.total))}</strong></span></div></div>
+      <div class="btnrow"><button class="btn ghost" id="evCopy">${ICON.copy}Cobrança</button>${S.canWrite ? `<button class="btn ghost" id="evAdd">${ICON.plus}Adicionar pessoa</button>` : ""}</div>
+      <textarea id="evTxt" class="input" readonly hidden></textarea>
+      <div id="evAddBox" hidden class="field">
+        <div class="field"><label for="evGuest">Convidado (fora do elenco)</label><div style="display:flex;gap:8px"><input id="evGuest" class="input" placeholder="Nome"><button class="btn primary" id="evGuestAdd">Incluir</button></div></div>
+        ${out.length ? `<span class="lbl">Do elenco</span><div class="chips">${out.map(p => `<button class="chip" data-addp="${esc(p.id)}">${esc(p.name)}</button>`).join("")}</div>` : ""}
+      </div>
+      <div class="list">
+        ${ids.length ? ids.map(id => { const x = people[id]; return `<div class="row">
+          <span class="main"><div class="name">${esc(nameOf(id))}${x.guest ? ' <span class="pill mute">convidado</span>' : ""}</div><div class="sub num">${x.paid ? `Pagou ${brl(x.amount || ev.price)} · ${fmtDateShort(x.paidAt)} · ${esc(x.method || "")}` : "Não pagou"}</div></span>
+          ${S.canWrite ? `<button class="pill ${x.paid ? "ok" : "bad"}" style="border:0;padding:8px 12px" data-epay="${esc(id)}">${x.paid ? "Pago ✓" : "Marcar pago"}</button>
+          <button class="x" data-erm="${esc(id)}" aria-label="Tirar do evento">${ICON.x}</button>` : `<span class="pill ${x.paid ? "ok" : "bad"}">${x.paid ? "Pago" : "Devendo"}</span>`}
+        </div>`; }).join("") : `<div class="empty"><b>Ninguém no evento</b>Toque em Adicionar pessoa.</div>`}
+      </div>
+      ${S.canWrite ? `<div id="evDelBox"><button class="btn danger block" id="evDel">Excluir evento</button></div>` : ""}`, el => {
+      const save = async (patch, msg) => {
+        const body = Object.assign({}, ev, patch); delete body.id;
+        const ok = await write(db => db.doc("events/" + ev.id).set(body), msg);
+        if (ok) S.events = S.events.map(x => x.id === ev.id ? Object.assign({}, body, { id: ev.id }) : x);
+        return ok;
+      };
+      const reopen = () => setTimeout(() => sheetEvent(ev.id), 0);
+      $("#evCopy", el).onclick = () => {
+        const pg = ids.filter(id => people[id].paid), dv = ids.filter(id => !people[id].paid);
+        const c = cfg();
+        const txt = `🍖 *${ev.name}* — ${fmtDate(ev.date)}\nValor: ${brl(ev.price)} por pessoa\n` + pixText(c) +
+          `\n✅ Pagos (${pg.length}):\n${pg.map(id => "• " + nameOf(id)).join("\n") || "—"}\n\n⏳ Faltam pagar (${dv.length}):\n${dv.map(id => "• " + nameOf(id)).join("\n") || "Ninguém! 🙌"}`;
+        copyText(txt, $("#evTxt", el));
+      };
+      const add = $("#evAdd", el); if (add) add.onclick = () => { const b = $("#evAddBox", el); b.hidden = !b.hidden; };
+      el.onclick = async e => {
+        const a = e.target.closest("[data-addp]"); if (a) { const np = Object.assign({}, people, { [a.dataset.addp]: { paid: false } }); if (await save({ people: np })) reopen(); return; }
+        const pBtn = e.target.closest("[data-epay]");
+        if (pBtn) {
+          const id = pBtn.dataset.epay; const cur = people[id];
+          const np = Object.assign({}, people, { [id]: cur.paid ? { paid: false, guest: cur.guest } : Object.assign({}, cur, { paid: true, paidAt: todayISO(), method: store.get("method", "Pix"), amount: Number(ev.price) || 0 }) });
+          if (await save({ people: np })) reopen(); return;
+        }
+        const rm = e.target.closest("[data-erm]");
+        if (rm) { const np = Object.assign({}, people); delete np[rm.dataset.erm]; if (await save({ people: np })) reopen(); }
+      };
+      const ga = $("#evGuestAdd", el);
+      if (ga) ga.onclick = async () => { const nm = $("#evGuest", el).value.trim(); if (!nm) return; const np = Object.assign({}, people, { ["g_" + uid()]: { paid: false, guest: nm } }); if (await save({ people: np })) reopen(); };
+      const del = $("#evDel", el);
+      if (del) del.onclick = () => {
+        $("#evDelBox", el).innerHTML = `<div class="confirm">Excluir o evento "${esc(ev.name)}" e todos os pagamentos dele?<div class="btnrow"><button class="btn ghost" data-close>Cancelar</button><button class="btn danger" id="evDelYes" style="background:var(--bad);color:#fff">Excluir</button></div></div>`;
+        $("#evDelYes", el).onclick = async e2 => { e2.stopPropagation(); if (await write(db => db.doc("events/" + ev.id).delete(), "Evento excluído")) closeSheet(); };
+      };
+    });
+  }
+
+  function sheetAvulsoNew() {
+    const c = cfg(); let method = store.get("method", "Pix"); let paid = true;
+    const date0 = todayISO();
+    const cands = S.players.filter(p => p.active !== false && p.mensalista === false).sort(sortName);
+    const sel = new Set(cands.filter(p => S.present.has(p.id) && !S.avulsos.some(a => a.playerId === p.id && a.date === date0)).map(p => p.id));
+    const guests = [];
+    openSheet(`${sheetHead("Pagamento avulso")}
+      <div class="grid2">
+        <div class="field"><label for="avDate">Data do jogo</label><input id="avDate" class="input" type="date" value="${date0}"></div>
+        <div class="field"><label for="avVal">Valor por jogo</label><input id="avVal" class="input num" inputmode="decimal" value="${String(c.avulso).replace(".", ",")}"></div>
+      </div>
+      <div class="field"><span class="lbl">Quem jogou</span>
+        <div class="chips" id="avWho">${cands.map(p => `<button class="chip" data-w="${esc(p.id)}" aria-pressed="${sel.has(p.id)}">${esc(p.name)}</button>`).join("") || '<span style="color:var(--muted)">Nenhum jogador marcado como avulso. Digite o nome abaixo.</span>'}</div>
+        <div style="display:flex;gap:8px"><input id="avName" class="input" placeholder="Outro nome (visitante)" autocomplete="off"><button class="btn ghost" id="avAddName">Incluir</button></div>
+        <div class="chips" id="avGuests"></div></div>
+      <button class="toggle" id="avPaid" role="switch" aria-checked="true"><span class="main"><b>Já pagou</b><div style="font-size:13px;color:var(--muted)">Desmarque se ficou devendo</div></span><span class="sw"></span></button>
+      <div class="field" id="avMethBox"><span class="lbl">Forma de pagamento</span><div class="chips" id="avMeth">${FORMAS.map(f => `<button class="chip" data-m="${f}" aria-pressed="${f === method}">${f}</button>`).join("")}</div></div>
+      <button class="btn primary block" id="avSave">${ICON.check}Registrar</button>`, el => {
+      const drawGuests = () => { $("#avGuests", el).innerHTML = guests.map((g, i) => `<button class="chip" aria-pressed="true" data-g="${i}">${esc(g)} ✕</button>`).join(""); };
+      $("#avWho", el).onclick = e => { const b = e.target.closest("[data-w]"); if (!b) return; sel.has(b.dataset.w) ? sel.delete(b.dataset.w) : sel.add(b.dataset.w); b.setAttribute("aria-pressed", String(sel.has(b.dataset.w))); };
+      $("#avGuests", el).onclick = e => { const b = e.target.closest("[data-g]"); if (!b) return; guests.splice(Number(b.dataset.g), 1); drawGuests(); };
+      const addName = () => { const v = $("#avName", el).value.trim(); if (!v) return; guests.push(v); $("#avName", el).value = ""; drawGuests(); };
+      $("#avAddName", el).onclick = addName;
+      $("#avName", el).onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); addName(); } };
+      $("#avPaid", el).onclick = e => { paid = !paid; e.currentTarget.setAttribute("aria-checked", String(paid)); $("#avMethBox", el).hidden = !paid; };
+      $("#avMeth", el).onclick = e => { const b = e.target.closest("[data-m]"); if (!b) return; method = b.dataset.m; store.set("method", method); el.querySelectorAll("#avMeth [data-m]").forEach(x => x.setAttribute("aria-pressed", String(x === b))); };
+      $("#avSave", el).onclick = async () => {
+        const pending = $("#avName", el).value.trim(); if (pending) addName();
+        const who = [...sel].map(id => ({ playerId: id, name: (playerById(id) || {}).name || "?" })).concat(guests.map(g => ({ playerId: null, name: g })));
+        if (!who.length) { toast("Escolha quem jogou."); return; }
+        const amount = parseFloat(($("#avVal", el).value || "0").replace(/\./g, "").replace(",", ".")) || 0;
+        const date = $("#avDate", el).value || todayISO();
+        const btn = $("#avSave", el); btn.disabled = true;
+        const ok = await write(async db => {
+          for (const w of who) await db.doc("avulsos/" + uid()).set({ playerId: w.playerId, name: w.name, date, amount, paid, method: paid ? method : "", paidAt: paid ? todayISO() : "", createdAt: new Date().toISOString() });
+        }, who.length > 1 ? `${who.length} avulsos registrados` : "Avulso registrado");
+        if (ok) closeSheet(); else btn.disabled = false;
+      };
+    });
+  }
+  function sheetAvulsoItem(id) {
+    const a = S.avulsos.find(x => x.id === id); if (!a) return;
+    openSheet(`${sheetHead(a.name)}
+      <div class="card num" style="font-size:16px">Jogo de <b>${fmtDate(a.date)}</b> · ${brl(a.amount)}<br>
+        ${a.paid ? `<span class="pill ok">Pago</span> via ${esc(a.method)} em ${fmtDate(a.paidAt)}` : `<span class="pill bad">Devendo</span>`}</div>
+      ${S.canWrite ? `<div class="btnrow">
+        <button class="btn ${a.paid ? "ghost" : "primary"}" id="aiToggle">${a.paid ? "Marcar como não pago" : ICON.check + "Marcar como pago (" + esc(store.get("method", "Pix")) + ")"}</button></div>
+        <div id="aiDelBox"><button class="btn danger block" id="aiDel">Excluir registro</button></div>` : ""}`, el => {
+      const tg = $("#aiToggle", el); if (!tg) return;
+      tg.onclick = async () => {
+        const body = Object.assign({}, a); delete body.id;
+        Object.assign(body, a.paid ? { paid: false, method: "", paidAt: "" } : { paid: true, method: store.get("method", "Pix"), paidAt: todayISO() });
+        if (await write(db => db.doc("avulsos/" + a.id).set(body), body.paid ? "Marcado como pago" : "Marcado como devendo")) closeSheet();
+      };
+      $("#aiDel", el).onclick = () => {
+        $("#aiDelBox", el).innerHTML = `<div class="confirm">Excluir o avulso de ${esc(a.name)} em ${fmtDate(a.date)}?<div class="btnrow"><button class="btn ghost" data-close>Cancelar</button><button class="btn danger" id="aiYes" style="background:var(--bad);color:#fff">Excluir</button></div></div>`;
+        $("#aiYes", el).onclick = async () => { if (await write(db => db.doc("avulsos/" + a.id).delete(), "Registro excluído")) closeSheet(); };
+      };
+    });
+  }
+
+  // ---------- lista de confirmação no WhatsApp ----------
+  const DIAS = ["domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado"];
+  function nextGame() { const d = new Date(); const alvo = Number(cfg().diaJogo ?? 5); while (d.getDay() !== alvo) d.setDate(d.getDate() + 1); return d; }
+  const norm = t => String(t || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
+  const OKMARK = /✅|✔|☑|🟢|👍/;
+  const NOMARK = /❌|✖|🔴|👎/;
+  function zapText() {
+    const c = cfg(), g = nextGame();
+    const act = S.players.filter(p => p.active !== false).sort(byPrio);
+    const line = (p, i) => `${i + 1}. ${p.name}${S.present.has(p.id) ? " ✅" : ""}`;
+    const adultos = act.filter(p => prio(p).g < 2), av = act.filter(p => prio(p).g === 2), kids = act.filter(p => prio(p).g === 3);
+    let n = 0; const block = arr => arr.map(p => line(p, n++)).join("\n");
+    return `⚽ *${c.grupo}* — ${DIAS[g.getDay()]} ${pad(g.getDate())}/${pad(g.getMonth() + 1)}\n` +
+      `Quem vai jogar: copie a lista, coloque ✅ no seu nome e mande de volta no grupo.\n` +
+      `Quem não vai, coloque ❌.\n\n` +
+      `*Mensalistas*\n${block(adultos)}` +
+      (av.length ? `\n\n*Avulsos* (${brl(c.avulso)} por jogo)\n${block(av)}` : "") +
+      (kids.length ? `\n\n*Crianças*\n${block(kids)}` : "") +
+      `\n\nConvidado? Escreva o nome no fim da lista com ✅` + pixText(c);
+  }
+  function sheetZapLista() {
+    const txt = zapText();
+    openSheet(`${sheetHead("Lista no WhatsApp")}
+      <p style="margin:0;font-size:14px">Quem já está marcado (em verde) vai com ✅. Mande no grupo. Cada pessoa copia, coloca ✅ no nome e manda de volta. Depois é só colar a última lista aqui em <b>Colar confirmações</b>.</p>
+      <textarea id="zpTxt" class="input" readonly style="min-height:220px">${esc(txt)}</textarea>
+      <div class="btnrow"><a class="btn primary" href="https://wa.me/?text=${encodeURIComponent(txt)}" target="_blank" rel="noopener">Abrir no WhatsApp</a><button class="btn ghost" id="zpCopy">${ICON.copy}Copiar texto</button></div>`, el => {
+      $("#zpCopy", el).onclick = () => copyText(txt, $("#zpTxt", el));
+    });
+  }
+  function parseZap(text) {
+    const act = S.players.filter(p => p.active !== false);
+    const found = [], out = [], unknown = [];
+    text.split(/\r?\n/).forEach(raw => {
+      const ok = OKMARK.test(raw), no = NOMARK.test(raw);
+      if (!ok && !no) return;
+      const nm = norm(raw.replace(OKMARK, " ").replace(NOMARK, " ").replace(/^\s*\d+\s*[.)\-:]?\s*/, ""));
+      if (!nm) return;
+      let p = act.find(x => norm(x.name) === nm) || act.find(x => norm(x.name).startsWith(nm + " ") || nm.startsWith(norm(x.name) + " "));
+      if (!p) { const cand = act.filter(x => norm(x.name).split(" ")[0] === nm.split(" ")[0]); if (cand.length === 1) p = cand[0]; }
+      if (p) (ok ? found : out).push(p); else if (ok) unknown.push(raw.replace(OKMARK, "").replace(/^\s*\d+\s*[.)\-:]?\s*/, "").trim());
+    });
+    return { found: [...new Set(found)], out: [...new Set(out)].filter(p => !found.includes(p)), unknown };
+  }
+  function sheetZapColar() {
+    openSheet(`${sheetHead("Colar confirmações")}
+      <p style="margin:0;font-size:14px">No WhatsApp, segure a última lista do grupo, toque em <b>Copiar</b> e cole aqui. Quem tiver ✅ fica marcado em verde, quem tiver ❌ é desmarcado.</p>
+      <textarea id="zcTxt" class="input" placeholder="Cole aqui a lista do WhatsApp" style="min-height:180px"></textarea>
+      <div id="zcRes"></div>
+      <button class="btn primary block" id="zcGo" disabled>${ICON.check}Marcar confirmados</button>`, el => {
+      let res = null;
+      const show = () => {
+        res = parseZap($("#zcTxt", el).value);
+        const { found, out, unknown } = res;
+        $("#zcGo", el).disabled = !found.length && !out.length;
+        $("#zcRes", el).innerHTML = $("#zcTxt", el).value.trim() ? `<div class="card" style="display:flex;flex-direction:column;gap:8px;font-size:14px">
+          <div><span class="pill ok">${found.length} vão jogar</span> ${esc(found.map(p => p.name).join(", "))}</div>
+          ${out.length ? `<div><span class="pill bad">${out.length} não vão</span> ${esc(out.map(p => p.name).join(", "))}</div>` : ""}
+          ${unknown.length ? `<div><span class="pill warn">${unknown.length} fora do elenco</span> ${esc(unknown.join(", "))}<div style="color:var(--muted)">Cadastre na aba Jogadores (como avulso) e cole de novo.</div></div>` : ""}</div>` : "";
+      };
+      $("#zcTxt", el).addEventListener("input", show);
+      $("#zcTxt", el).addEventListener("paste", () => setTimeout(show, 0));
+      $("#zcGo", el).onclick = () => {
+        res.found.forEach(p => { S.present.add(p.id); S.removed.delete(p.id); });
+        res.out.forEach(p => { S.present.delete(p.id); S.removed.add(p.id); });
+        saveDay(); closeSheet(); toast(`${res.found.length} confirmados marcados`);
+      };
+    });
+  }
+
+  // ---------- colaboradores ----------
+  const APP_URL = location.origin + location.pathname;
+  const conviteText = (c, senha) => `Olá, ${c.name}! 👋\nVocê agora ajuda a cuidar do *${cfg().grupo}* (UP Unida de Poá) ⚽\n\n` +
+    `Abra o app: ${APP_URL}\nE-mail: ${c.email}\n` + (senha ? `Senha: ${senha}\n` : "") +
+    `\nNo iPhone: abra no Safari, toque em Compartilhar › Adicionar à Tela de Início para ficar com o ícone.\n` +
+    `Se esquecer a senha, toque em "Esqueci minha senha" na tela de entrada.`;
+  const zapLink = (phone, txt) => `https://wa.me/${(phone || "").replace(/\D/g, "").replace(/^(?!55)(\d{10,11})$/, "55$1")}?text=${encodeURIComponent(txt)}`;
+  function genPass() { const a = "abcdefghjkmnpqrstuvwxyz23456789"; let p = ""; for (let i = 0; i < 8; i++) p += a[Math.floor(Math.random() * a.length)]; return p; }
+  function sheetColab(justCreated) {
+    const list = (S.colab || []).slice().sort(sortName);
+    openSheet(`${sheetHead("Colaboradores")}
+      <p style="margin:0;font-size:14px">Colaboradores entram no app com e-mail e senha e veem tudo junto com você, na hora.</p>
+      ${justCreated ? `<div class="card" style="display:flex;flex-direction:column;gap:8px;background:var(--ok-bg)">
+          <b>${esc(justCreated.c.name)} cadastrado!</b>
+          <div class="num" style="font-size:15px">E-mail: <b>${esc(justCreated.c.email)}</b><br>Senha: <b>${esc(justCreated.senha)}</b></div>
+          <a class="btn primary" href="${zapLink(justCreated.c.phone, conviteText(justCreated.c, justCreated.senha))}" target="_blank" rel="noopener">Enviar acesso no WhatsApp</a>
+          <span style="font-size:13px;color:var(--muted)">Anote ou envie agora: a senha não aparece de novo.</span></div>` : ""}
+      ${S.isAdmin ? `<div class="card" style="display:flex;flex-direction:column;gap:10px">
+        <span class="lbl">Novo colaborador</span>
+        <div class="field"><label for="cbName">Nome</label><input id="cbName" class="input" autocomplete="off" placeholder="Ex: Marcos"></div>
+        <div class="grid2">
+          <div class="field"><label for="cbEmail">E-mail</label><input id="cbEmail" class="input" type="email" inputmode="email" autocomplete="off" placeholder="nome@email.com"></div>
+          <div class="field"><label for="cbTel">WhatsApp</label><input id="cbTel" class="input num" type="tel" inputmode="tel" autocomplete="off" placeholder="(11) 90000-0000"></div>
+        </div>
+        <div class="field"><span class="lbl">Pode fazer</span><div class="seg" id="cbPapel" style="grid-template-columns:1fr 1fr"><button type="button" data-v="editor" aria-pressed="true">Editar tudo</button><button type="button" data-v="leitor" aria-pressed="false">Só visualizar</button></div></div>
+        <button class="btn primary block" id="cbAdd">${ICON.plus}Cadastrar e gerar senha</button></div>` : ""}
+      <div class="list">${list.length ? list.map(c => `<div class="card" style="display:flex;flex-direction:column;gap:8px;${c.ativo === false ? "opacity:.55" : ""}">
+          <div><b style="font-size:16px">${esc(c.name)}</b> <span class="pill ${c.ativo === false ? "bad" : c.papel === "leitor" ? "mute" : "ok"}">${c.ativo === false ? "bloqueado" : c.papel === "leitor" ? "só visualiza" : "edita"}</span>
+            <div class="num" style="color:var(--muted);font-size:13px;word-break:break-all">${esc([c.email, c.phone].filter(Boolean).join(" · "))}</div></div>
+          ${S.isAdmin ? `<div class="btnrow">
+            <a class="btn ghost" href="${zapLink(c.phone, conviteText(c))}" target="_blank" rel="noopener">Reenviar link</a>
+            <button class="btn ghost" data-cbreset="${esc(c.email)}">Mandar troca de senha</button>
+            <button class="btn ${c.ativo === false ? "primary" : "danger"}" data-cbtoggle="${esc(c.id)}">${c.ativo === false ? "Liberar" : "Bloquear"}</button>
+          </div>` : ""}</div>`).join("") : `<div class="empty"><b>Nenhum colaborador ainda</b>${S.isAdmin ? "Cadastre acima quem vai ajudar." : ""}</div>`}</div>`, el => {
+      let papel = "editor";
+      const pp = $("#cbPapel", el); if (pp) pp.onclick = e => { const b = e.target.closest("[data-v]"); if (!b) return; papel = b.dataset.v; pp.querySelectorAll("[data-v]").forEach(x => x.setAttribute("aria-pressed", String(x === b))); };
+      el.addEventListener("click", async e => {
+        const rs = e.target.closest("[data-cbreset]");
+        if (rs) { try { await firebase.auth().sendPasswordResetEmail(rs.dataset.cbreset); toast("E-mail de troca de senha enviado"); } catch (err) { toast("Não foi possível enviar."); } return; }
+        const tg = e.target.closest("[data-cbtoggle]");
+        if (tg) { const c = S.colab.find(x => x.id === tg.dataset.cbtoggle); if (c && await write(db => db.doc("colaboradores/" + c.id).update({ ativo: c.ativo === false }), c.ativo === false ? "Acesso liberado" : "Acesso bloqueado")) { c.ativo = c.ativo === false; sheetColab(); } }
+      });
+      const add = $("#cbAdd", el);
+      if (add) add.onclick = async () => {
+        const name = $("#cbName", el).value.trim(), email = $("#cbEmail", el).value.trim().toLowerCase(), phone = $("#cbTel", el).value.trim();
+        if (!name) { toast("Escreva o nome."); return; }
+        if (!/^\S+@\S+\.\S+$/.test(email)) { toast("Escreva um e-mail válido."); return; }
+        add.disabled = true;
+        const senha = genPass();
+        // cria a conta num app secundário para o administrador continuar conectado
+        const sec = firebase.apps.find(a => a.name === "cadastro") || firebase.initializeApp(window.FIREBASE_CONFIG, "cadastro");
+        try {
+          const cred = await sec.auth().createUserWithEmailAndPassword(email, senha);
+          const c = { name, email, phone, papel, ativo: true, criadoEm: new Date().toISOString() };
+          await S.db.doc("colaboradores/" + cred.user.uid).set(c);
+          await sec.auth().signOut();
+          S.colab = (S.colab || []).filter(x => x.id !== cred.user.uid).concat([Object.assign({ id: cred.user.uid }, c)]);
+          sheetColab({ c, senha });
+        } catch (err) {
+          add.disabled = false;
+          toast(err && err.code === "auth/email-already-in-use" ? "Esse e-mail já tem cadastro." : err && err.code === "auth/invalid-email" ? "E-mail inválido." : "Não foi possível cadastrar.");
+        }
+      };
+    });
+  }
+
+  // ---------- backup ----------
+  const COLS = ["players", "payments", "events", "avulsos", "config", "sorteio", "presenca"];
+  async function exportBackup() {
+    const out = {};
+    for (const c of COLS) { const snap = await S.db.collection(c).get(); out[c] = {}; snap.docs.forEach(d => { out[c][d.id] = d.data(); }); }
+    const blob = new Blob([JSON.stringify(out, null, 1)], { type: "application/json" });
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `futebol-backup-${todayISO()}.json`; document.body.appendChild(a); a.click(); a.remove();
+  }
+  async function importBackup(file, msg) {
+    if (!file) return;
+    try {
+      const data = JSON.parse(await file.text()); let n = 0;
+      for (const c of COLS) for (const [id, body] of Object.entries(data[c] || {})) { await S.db.doc(c + "/" + id).set(body); n++; }
+      msg.textContent = `${n} registros restaurados.`; toast("Backup restaurado");
+    } catch (e) { msg.textContent = "Arquivo inválido ou sem permissão."; }
+  }
+
+  // ---------- sorteio ----------
+  function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+  function drawTeams(players, perTeam, useSkill, usePos) {
+    const n = players.length; const full = Math.floor(n / perTeam), rem = n % perTeam;
+    let caps;
+    if (full >= 2) { caps = Array(full).fill(perTeam); if (rem) caps.push(rem); }
+    else { caps = [Math.ceil(n / 2), Math.floor(n / 2)]; } // menos de 2 times completos: divide em dois
+    const teams = caps.map(cap => ({ cap, list: [], sum: 0 }));
+    const sk = p => useSkill ? Number(p.skill ?? 5) : 5;
+    const place = (p, t) => { t.list.push(p); t.sum += sk(p); };
+    const gks = shuffle(players.filter(p => p.pos === "G"));
+    const line = shuffle(players.filter(p => p.pos !== "G"));
+    // um goleiro por time, começando pelos times completos
+    const order = teams.map((t, i) => i).sort((a, b) => teams[b].cap - teams[a].cap);
+    const extraG = [];
+    gks.forEach((g, i) => { if (i < order.length) place(g, teams[order[i]]); else extraG.push(g); });
+    let pool = line.concat(extraG);
+    if (useSkill) pool.sort((a, b) => sk(b) - sk(a));
+    if (usePos) {
+      const rank = { Z: 0, LE: 1, LD: 1, V: 2, M: 3, A: 4, G: 5 };
+      // agrupa por posição mantendo habilidade decrescente dentro do grupo
+      pool = pool.map((p, i) => ({ p, i })).sort((a, b) => (rank[a.p.pos] ?? 4) - (rank[b.p.pos] ?? 4) || a.i - b.i).map(x => x.p);
+    }
+    pool.forEach(p => {
+      const open = teams.filter(t => t.list.length < t.cap);
+      let best = open;
+      if (usePos) { const cnt = t => t.list.filter(x => x.pos === p.pos).length; const mn = Math.min(...open.map(cnt)); best = open.filter(t => cnt(t) === mn); }
+      const load = t => (t.sum + (useSkill ? 0 : Math.random())) / t.cap + t.list.length / t.cap * 0.01;
+      const mn = Math.min(...best.map(load));
+      const cands = best.filter(t => Math.abs(load(t) - mn) < 1e-9);
+      place(p, cands[Math.floor(Math.random() * cands.length)]);
+    });
+    return teams.map((t, i) => ({ ids: t.list.map(p => p.id), full: !(full >= 2 && i === full) }));
+  }
+  function teamsText(sorteio) {
+    return `⚽ *${cfg().grupo}* — Times ${sorteio.label || ""}\n` + sorteio.teams.map((t, i) => {
+      const ps = t.ids.map(playerById).filter(Boolean);
+      return `\n*Time ${i + 1}*${t.full ? "" : " (próximo)"}\n` + ps.map(p => `• ${p.name}${p.pos === "G" ? " (G)" : ""}`).join("\n");
+    }).join("\n");
+  }
+  function sheetTeams(sorteio) {
+    const html = sorteio.teams.map((t, i) => {
+      const ps = t.ids.map(playerById).filter(Boolean);
+      ps.sort((a, b) => (b.pos === "G") - (a.pos === "G") || Number(b.skill ?? 5) - Number(a.skill ?? 5));
+      const sum = ps.reduce((a, p) => a + Number(p.skill ?? 5), 0);
+      return `<article class="team ${t.full ? "" : "reserve"}"><header><h4>Time ${i + 1}</h4><span class="num">${ps.length} jog. · média ${(ps.length ? sum / ps.length : 0).toFixed(2)} · total ${sum.toFixed(1)}</span></header>
+        <ul>${ps.map(p => `<li><span class="pos ${p.pos === "G" ? "g" : ""}">${esc(p.pos || "A")}</span><span class="n">${esc(p.name)}</span><span class="skill num" style="font-size:16px">${Number(p.skill ?? 5).toFixed(1)}</span></li>`).join("")}</ul></article>`;
+    }).join("");
+    openSheet(`${sheetHead("Times")}
+      <div class="teams">${html}</div>
+      <textarea id="tmTxt" class="input" readonly hidden></textarea>
+      <div class="btnrow"><button class="btn ghost" id="tmRe">${ICON.shuffle}Sortear de novo</button><button class="btn primary" id="tmCopy">${ICON.copy}Copiar para o WhatsApp</button></div>`, el => {
+      $("#tmCopy", el).onclick = () => copyText(teamsText(sorteio), $("#tmTxt", el));
+      $("#tmRe", el).onclick = () => runDraw();
+    });
+  }
+  function sheetDrawParams() {
+    let per = S.perTeam;
+    openSheet(`${sheetHead("Parâmetros")}
+      <div class="card stepper" style="justify-content:space-between"><span style="font-weight:600">Jogadores por time</span><span class="stepper"><button class="round" id="pMinus" aria-label="Menos">−</button><b id="pN" class="num">${per}</b><button class="round" id="pPlus" aria-label="Mais">+</button></span></div>
+      <p id="pInfo" class="num" style="margin:0;color:var(--muted)"></p>
+      <button class="toggle" id="pPos" role="switch" aria-checked="${S.usePos}"><span class="main"><b>Considerar posições</b><div style="font-size:13px;color:var(--muted)">Goleiros sempre ficam em times diferentes</div></span><span class="sw"></span></button>
+      <button class="toggle" id="pSkill" role="switch" aria-checked="${S.useSkill}"><span class="main"><b>Considerar habilidade</b><div style="font-size:13px;color:var(--muted)">Equilibra a soma das notas</div></span><span class="sw"></span></button>
+      <button class="btn primary block" id="pGo">${ICON.shuffle}Sortear times</button>`, el => {
+      const info = () => {
+        const n = S.present.size, g = [...S.present].map(playerById).filter(p => p && p.pos === "G").length;
+        const full = Math.floor(n / per), r = n % per;
+        $("#pN", el).textContent = per;
+        $("#pInfo", el).textContent = `${n} jogadores: ${full} time${full === 1 ? "" : "s"} de ${per}${r && full >= 2 ? ` + ${r} no próximo (os últimos da fila)` : ""}. ${g} goleiro${g === 1 ? "" : "s"}.`;
+      };
+      info();
+      $("#pMinus", el).onclick = () => { per = Math.max(2, per - 1); info(); };
+      $("#pPlus", el).onclick = () => { per = Math.min(11, per + 1); info(); };
+      ["#pPos", "#pSkill"].forEach(s => { $(s, el).onclick = e => { const t = e.currentTarget; t.setAttribute("aria-checked", String(t.getAttribute("aria-checked") !== "true")); }; });
+      $("#pGo", el).onclick = () => {
+        S.perTeam = per; S.usePos = $("#pPos", el).getAttribute("aria-checked") === "true"; S.useSkill = $("#pSkill", el).getAttribute("aria-checked") === "true";
+        store.set("perTeam", per); store.set("usePos", S.usePos); store.set("useSkill", S.useSkill);
+        runDraw();
+      };
+    });
+  }
+  function runDraw() {
+    const ps = [...S.present].map(playerById).filter(Boolean).sort(byPrio);
+    if (ps.length < 2) return;
+    const d = new Date();
+    // quem pagou primeiro joga; o resto da fila (avulsos e crianças por último) vai para o próximo
+    const full = Math.floor(ps.length / S.perTeam);
+    const main = full >= 2 ? ps.slice(0, full * S.perTeam) : ps, rest = full >= 2 ? ps.slice(full * S.perTeam) : [];
+    const teams = drawTeams(main, S.perTeam, S.useSkill, S.usePos);
+    if (rest.length) teams.push({ ids: rest.map(p => p.id), full: false });
+    const sorteio = { teams, label: `${pad(d.getDate())}/${pad(d.getMonth() + 1)} ${pad(d.getHours())}:${pad(d.getMinutes())}`, at: d.toISOString() };
+    S.sorteio = sorteio;
+    sheetTeams(sorteio);
+    if (S.db && S.canWrite) S.db.doc("sorteio/atual").set(sorteio).catch(() => {});
+  }
+
+  // ---------- eventos de UI ----------
+  document.querySelector("nav.tabs").addEventListener("click", e => {
+    const b = e.target.closest("[data-tab]"); if (!b) return;
+    S.tab = b.dataset.tab; store.set("tab", S.tab); S._focusQ = false; render(); window.scrollTo(0, 0);
+  });
+  $("#btnSettings").onclick = sheetSettings;
+  $("#btnColab").onclick = () => sheetColab();
+  document.addEventListener("input", e => { if (e.target.id === "q") { S.q = e.target.value; S._focusQ = true; render(); } });
+  document.addEventListener("click", e => {
+    if (e.target.closest("#sheet")) return;
+    const t = e.target.closest("[data-act],[data-pay],[data-edit],[data-event],[data-present],[data-filter],[data-avulso]"); if (!t) return;
+    const d = t.dataset;
+    if (d.pay) return sheetPayment(d.pay);
+    if (d.avulso) return sheetAvulsoItem(d.avulso);
+    if (d.edit) return S.canWrite ? sheetPlayer(d.edit) : null;
+    if (d.event) return sheetEvent(d.event);
+    if (d.filter) { S.filter = d.filter; return render(); }
+    if (d.present) { if (S.present.has(d.present)) { S.present.delete(d.present); S.removed.add(d.present); } else { S.present.add(d.present); S.removed.delete(d.present); } saveDay(); return render(); }
+    switch (d.act) {
+      case "prev": S.month = addMonth(S.month, -1); return render();
+      case "next": S.month = addMonth(S.month, 1); return render();
+      case "settings": return sheetSettings();
+      case "cobranca": return sheetCobranca();
+      case "newPlayer": return sheetPlayer(null);
+      case "newEvent": return sheetEvent(null);
+      case "newAvulso": return sheetAvulsoNew();
+      case "draw": return sheetDrawParams();
+      case "showLast": return sheetTeams(S.sorteio);
+      case "zapLista": return sheetZapLista();
+      case "zapColar": return sheetZapColar();
+      case "all": S.players.filter(p => p.active !== false).forEach(p => S.present.add(p.id)); S.removed.clear(); saveDay(); return render();
+      case "none": S.present.forEach(id => S.removed.add(id)); S.present.clear(); saveDay(); return render();
+    }
+  });
+  document.addEventListener("keydown", e => { if (e.key === "Escape") closeSheet(); });
+
+  // ---------- dados ----------
+  render();
+  firebase.initializeApp(window.FIREBASE_CONFIG);
+  const fdb = firebase.firestore();
+  const ADMIN = String(window.ADMIN_EMAIL || "").toLowerCase();
+  let unsubs = [];
+  const loginEl = $("#login");
+  $("#loginForm").addEventListener("submit", async e => {
+    e.preventDefault();
+    const err = $("#lgErr"); err.hidden = true; $("#lgBtn").disabled = true;
+    try { await firebase.auth().signInWithEmailAndPassword($("#lgEmail").value.trim(), $("#lgPass").value); }
+    catch (x) { err.textContent = "E-mail ou senha incorretos."; err.hidden = false; }
+    $("#lgBtn").disabled = false;
+  });
+  $("#lgForgot").onclick = async () => {
+    const em = $("#lgEmail").value.trim(), err = $("#lgErr");
+    if (!em) { err.textContent = "Escreva seu e-mail acima e toque de novo."; err.hidden = false; return; }
+    try { await firebase.auth().sendPasswordResetEmail(em); err.textContent = "Enviamos um link para trocar a senha no seu e-mail."; }
+    catch (x) { err.textContent = "Não foi possível enviar. Confira o e-mail."; }
+    err.hidden = false;
+  };
+  firebase.auth().onAuthStateChanged(async u => {
+    unsubs.forEach(f => f()); unsubs = [];
+    S.me = u; S.db = null;
+    if (!u) { loginEl.hidden = false; return; }
+    S.isAdmin = (u.email || "").toLowerCase() === ADMIN;
+    let perfil = null;
+    try { const d = await fdb.doc("colaboradores/" + u.uid).get(); perfil = d.exists ? d.data() : null; } catch (e) {}
+    if (!S.isAdmin && (!perfil || perfil.ativo === false)) {
+      loginEl.hidden = false; const err = $("#lgErr"); err.textContent = "Seu acesso ainda não foi liberado pelo organizador."; err.hidden = false;
+      firebase.auth().signOut(); return;
+    }
+    loginEl.hidden = true;
+    S.canWrite = S.isAdmin || perfil.papel !== "leitor";
+    const db = fdb; S.db = db;
+    const sheetOpenFor = () => $("#sheet") != null;
+    const sub = (ref, onDocs, key) => unsubs.push(ref.onSnapshot(snap => {
+      onDocs(snap); S.loaded[key] = true;
+      if (!sheetOpenFor()) render();
+    }, () => { S.loaded[key] = true; render(); }));
+    sub(db.collection("players"), s => { S.players = s.docs.map(d => Object.assign({ id: d.id }, d.data())); }, "players");
+    sub(db.collection("payments"), s => { S.payments = s.docs.map(d => Object.assign({ id: d.id }, d.data())); }, "payments");
+    sub(db.collection("colaboradores"), s => { S.colab = s.docs.map(d => Object.assign({}, d.data(), { id: d.id })); }, "colab");
+    unsubs.push(db.doc("presenca/dia").onSnapshot(s => {
+      const d = s.exists ? s.data() : null;
+      if (d && d.date === todayISO()) { S.present = new Set(d.ids || []); S.removed = new Set(d.removed || []); store.set("day", { date: d.date, ids: d.ids || [], removed: d.removed || [] }); if (!$("#sheet") && S.tab === "times") render(); }
+    }, () => {}));
+    sub(db.collection("avulsos"), s => { S.avulsos = s.docs.map(d => Object.assign({}, d.data(), { id: d.id })); }, "avulsos");
+    sub(db.collection("events"), s => { S.events = s.docs.map(d => Object.assign({}, d.data(), { id: d.id })); }, "events");
+    sub(db.doc("config/main"), s => { S.settings = s.exists ? s.data() : null; }, "settings");
+    unsubs.push(db.doc("sorteio/atual").onSnapshot(s => { S.sorteio = s.exists ? s.data() : null; if (!sheetOpenFor() && S.tab === "times") render(); }, () => {}));
+  });
+  // re-render ao fechar folha (dados podem ter mudado)
+  new MutationObserver(() => { if (!$("#sheet")) render(); }).observe(document.body, { childList: true });
+})();
+</script>
+</body>
+</html>
