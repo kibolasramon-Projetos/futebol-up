@@ -1,28 +1,17 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    function isAdmin() {
-      return request.auth != null && request.auth.token.email.lower() == 'kibolasramon@yahoo.com.br';
-    }
-    function perfil() {
-      return get(/databases/$(database)/documents/colaboradores/$(request.auth.uid)).data;
-    }
-    function isMembro() {
-      return request.auth != null && (isAdmin() ||
-        (exists(/databases/$(database)/documents/colaboradores/$(request.auth.uid)) && perfil().ativo == true));
-    }
-    function podeEditar() {
-      return isAdmin() || (isMembro() && perfil().papel == 'editor');
-    }
-
-    // cada um lê o próprio perfil (para o app saber se o acesso foi liberado)
+    function adm() { return request.auth != null && request.auth.token.email.lower() == 'kibolasramon@yahoo.com.br'; }
+    function eu() { return /databases/$(database)/documents/colaboradores/$(request.auth.uid); }
+    function membro() { return adm() || (request.auth != null && exists(eu()) && get(eu()).data.ativo == true); }
+    function edita() { return adm() || (membro() && get(eu()).data.papel == 'editor'); }
     match /colaboradores/{uid} {
-      allow read: if isMembro() || (request.auth != null && request.auth.uid == uid);
-      allow write: if isAdmin();
+      allow read: if membro() || (request.auth != null && request.auth.uid == uid);
+      allow write: if adm();
     }
     match /{col}/{doc=**} {
-      allow read: if col != 'colaboradores' && isMembro();
-      allow write: if col != 'colaboradores' && podeEditar();
+      allow read: if col != 'colaboradores' && membro();
+      allow write: if col != 'colaboradores' && edita();
     }
   }
 }
