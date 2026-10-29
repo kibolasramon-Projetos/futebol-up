@@ -9,4 +9,4 @@ window.FIREBASE_CONFIG = {
   appId: "PREENCHER"
 };
 // E-mail do administrador (o único que cadastra colaboradores).
-window.ADMIN_EMAIL = "PREENCHER";
+window.ADMIN_EMAIL = "kibolasramon@yahoo.com.br";
