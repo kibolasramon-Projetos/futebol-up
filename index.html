@@ -87,16 +87,20 @@ main {
 
 nav.tabs {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 20;
-  background: var(--card); border-top: 1px solid var(--line);
+  background: var(--grass); border-top: 0; box-shadow: 0 -2px 12px rgba(0,0,0,.18);
   padding-bottom: env(safe-area-inset-bottom, 0px);
   padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-area-inset-right, 0px);
   display: grid; grid-template-columns: repeat(4, 1fr);
 }
-nav.tabs button { background: none; border: 0; padding: 8px 4px 10px; display: flex; flex-direction: column; align-items: center; gap: 3px; color: var(--muted); font-size: 12px; font-weight: 600; }
-nav.tabs button svg { width: 24px; height: 24px; }
-nav.tabs button[aria-selected="true"] { color: var(--grass-2); }
-:root[data-theme="dark"] nav.tabs button[aria-selected="true"] { color: var(--ok); }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) nav.tabs button[aria-selected="true"] { color: var(--ok); } }
+nav.tabs button { background: none; border: 0; padding: 8px 4px 10px; display: flex; flex-direction: column; align-items: center; gap: 4px; color: rgba(255,255,255,.82); font-size: 14px; font-weight: 800; letter-spacing: .2px; }
+nav.tabs button svg { width: 28px; height: 28px; padding: 3px 14px; box-sizing: content-box; border-radius: 99px; }
+nav.tabs button[aria-selected="true"] { color: var(--accent); }
+nav.tabs button[aria-selected="true"] svg { background: rgba(255,255,255,.16); }
+.swatches { display: flex; flex-wrap: wrap; gap: 10px; }
+.swatch { width: 46px; height: 46px; border-radius: 50%; border: 3px solid transparent; box-shadow: 0 0 0 1px var(--line); cursor: pointer; display: grid; place-items: center; color: #fff; }
+.swatch svg { width: 22px; height: 22px; visibility: hidden; }
+.swatch[aria-pressed="true"] { border-color: var(--accent); }
+.swatch[aria-pressed="true"] svg { visibility: visible; }
 
 .card { background: var(--card); border-radius: 16px; box-shadow: var(--shadow); padding: 14px; }
 .section-title { font-family: var(--display); font-weight: 700; font-size: 15px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 6px 2px -4px; display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
@@ -313,6 +317,18 @@ img { max-width: 100%; }
     get(k, d) { try { const v = localStorage.getItem("fut:" + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
     set(k, v) { try { localStorage.setItem("fut:" + k, JSON.stringify(v)); } catch (e) {} }
   };
+  const TEMAS = {
+    verde: ["Verde", "#0f5a32", "#137a43"], azul: ["Azul", "#0d3b7a", "#1557b0"], vermelho: ["Vermelho", "#7a1010", "#b3261e"],
+    roxo: ["Roxo", "#3f1d6e", "#5b2aa0"], laranja: ["Laranja", "#8a3b00", "#c25400"], preto: ["Preto", "#151515", "#3a3a3a"]
+  };
+  function applyTheme(t) {
+    const r = document.documentElement.style;
+    if (!TEMAS[t] || t === "verde") { r.removeProperty("--grass"); r.removeProperty("--grass-2"); t = "verde"; }
+    else { r.setProperty("--grass", TEMAS[t][1]); r.setProperty("--grass-2", TEMAS[t][2]); }
+    const m = document.querySelector('meta[name="theme-color"]'); if (m) m.content = TEMAS[t][1];
+    store.set("tema", t);
+  }
+  applyTheme(store.get("tema", "verde"));
   const ICON = {
     left: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>',
     right: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>',
@@ -390,7 +406,7 @@ img { max-width: 100%; }
     document.body.appendChild(w); document.body.style.overflow = "hidden";
     onMount && onMount($(".sheet", w));
   }
-  function closeSheet() { const s = $("#sheet"); if (s) s.remove(); document.body.style.overflow = ""; }
+  function closeSheet() { const s = $("#sheet"); if (s) s.remove(); document.body.style.overflow = ""; if (S.settings) applyTheme(S.settings.tema || "verde"); }
   const sheetHead = t => `<h3>${esc(t)}<button class="x" data-close aria-label="Fechar">${ICON.x}</button></h3>`;
   async function copyText(text, el) {
     try { await navigator.clipboard.writeText(text); toast("Copiado! Cole no WhatsApp."); }
@@ -686,6 +702,11 @@ img { max-width: 100%; }
           <div class="field"><label for="stTitular">Nome no banco</label><input id="stTitular" class="input" value="${esc(c.titular)}" placeholder="Titular da conta"></div>
         </div>
       </div>
+      <div class="card" style="display:flex;flex-direction:column;gap:12px">
+        <span class="lbl">Cor do aplicativo</span>
+        <div class="swatches" id="stTema">${Object.entries(TEMAS).map(([k, t]) => `<button class="swatch" data-tema="${k}" aria-label="${t[0]}" title="${t[0]}" aria-pressed="${(c.tema || "verde") === k}" style="background:${t[1]}">${ICON.check}</button>`).join("")}</div>
+        ${S.canWrite ? `<span style="font-size:13px;color:var(--muted)">Toque numa cor e depois em Salvar para mudar para todos.</span>` : ""}
+      </div>
       ${S.canWrite ? `<button class="btn primary block" id="stSave">Salvar</button>` : ""}
       <div class="card" style="display:flex;flex-direction:column;gap:10px">
         <span class="lbl">Conta</span>
@@ -699,11 +720,13 @@ img { max-width: 100%; }
       $("#stLogout", el).onclick = () => { closeSheet(); firebase.auth().signOut(); };
       const ex = $("#stExport", el); if (ex) ex.onclick = exportBackup;
       const im = $("#stImport", el); if (im) im.onchange = () => importBackup(im.files[0], $("#stImpMsg", el));
+      let tema = TEMAS[c.tema] ? c.tema : "verde";
+      $("#stTema", el).onclick = e => { const b = e.target.closest("[data-tema]"); if (!b) return; tema = b.dataset.tema; el.querySelectorAll("#stTema [data-tema]").forEach(x => x.setAttribute("aria-pressed", String(x === b))); applyTheme(tema); };
       let pixTipo = PIXT[c.pixTipo] ? c.pixTipo : "Celular";
       $("#stPixTipo", el).onclick = e => { const b = e.target.closest("[data-t]"); if (!b) return; pixTipo = b.dataset.t; el.querySelectorAll("#stPixTipo [data-t]").forEach(x => x.setAttribute("aria-pressed", String(x === b))); const i = $("#stPix", el); i.placeholder = PIXT[pixTipo][0]; i.inputMode = PIXT[pixTipo][1]; i.focus(); };
       const sv = $("#stSave", el);
       if (sv) sv.onclick = async () => {
-        const body = { grupo: $("#stGrupo", el).value.trim() || "Futebol de Sexta", quadra: num($("#stQuadra", el).value), mensalidade: num($("#stMens", el).value), avulso: num($("#stAv", el).value) || 15, vencimento: Math.min(31, Math.max(1, parseInt($("#stVenc", el).value, 10) || 10)), pix: $("#stPix", el).value.trim(), pixTipo, diaJogo: Number($("#stJogo", el).value), banco: $("#stBanco", el).value.trim(), titular: $("#stTitular", el).value.trim() };
+        const body = { grupo: $("#stGrupo", el).value.trim() || "Futebol de Sexta", quadra: num($("#stQuadra", el).value), mensalidade: num($("#stMens", el).value), avulso: num($("#stAv", el).value) || 15, vencimento: Math.min(31, Math.max(1, parseInt($("#stVenc", el).value, 10) || 10)), pix: $("#stPix", el).value.trim(), pixTipo, diaJogo: Number($("#stJogo", el).value), banco: $("#stBanco", el).value.trim(), titular: $("#stTitular", el).value.trim(), tema };
         if (await write(db => db.doc("config/main").set(body), "Configurações salvas")) closeSheet();
       };
     });
@@ -1159,6 +1182,8 @@ img { max-width: 100%; }
   // ---------- dados ----------
   render();
   firebase.initializeApp(window.FIREBASE_CONFIG);
+  firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(() => {});
+  $("#lgEmail").value = store.get("email", "");
   const fdb = firebase.firestore();
   const ADMIN = String(window.ADMIN_EMAIL || "").toLowerCase();
   let unsubs = [];
@@ -1166,7 +1191,7 @@ img { max-width: 100%; }
   $("#loginForm").addEventListener("submit", async e => {
     e.preventDefault();
     const err = $("#lgErr"); err.hidden = true; $("#lgBtn").disabled = true;
-    try { await firebase.auth().signInWithEmailAndPassword($("#lgEmail").value.trim(), $("#lgPass").value); }
+    try { await firebase.auth().signInWithEmailAndPassword($("#lgEmail").value.trim(), $("#lgPass").value); store.set("email", $("#lgEmail").value.trim()); }
     catch (x) { err.textContent = "E-mail ou senha incorretos."; err.hidden = false; }
     $("#lgBtn").disabled = false;
   });
@@ -1205,7 +1230,7 @@ img { max-width: 100%; }
     }, () => {}));
     sub(db.collection("avulsos"), s => { S.avulsos = s.docs.map(d => Object.assign({}, d.data(), { id: d.id })); }, "avulsos");
     sub(db.collection("events"), s => { S.events = s.docs.map(d => Object.assign({}, d.data(), { id: d.id })); }, "events");
-    sub(db.doc("config/main"), s => { S.settings = s.exists ? s.data() : null; }, "settings");
+    sub(db.doc("config/main"), s => { S.settings = s.exists ? s.data() : null; if (S.settings && S.settings.tema) applyTheme(S.settings.tema); }, "settings");
     unsubs.push(db.doc("sorteio/atual").onSnapshot(s => { S.sorteio = s.exists ? s.data() : null; if (!sheetOpenFor() && S.tab === "times") render(); }, () => {}));
   });
   // re-render ao fechar folha (dados podem ter mudado)
