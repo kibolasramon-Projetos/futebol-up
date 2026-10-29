@@ -96,6 +96,10 @@ nav.tabs button { background: none; border: 0; padding: 8px 4px 10px; display: f
 nav.tabs button svg { width: 28px; height: 28px; padding: 3px 14px; box-sizing: content-box; border-radius: 99px; }
 nav.tabs button[aria-selected="true"] { color: var(--accent); }
 nav.tabs button[aria-selected="true"] svg { background: rgba(255,255,255,.16); }
+.meter-label .m-in { color: #0b4fc4; font-weight: 800; font-size: 15px; }
+.meter-label .m-out { color: #c4120a; font-weight: 800; font-size: 15px; }
+:root[data-theme="dark"] .meter-label .m-in { color: #7fb0ff; } :root[data-theme="dark"] .meter-label .m-out { color: #ff7a70; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .meter-label .m-in { color: #7fb0ff; } :root:not([data-theme="light"]) .meter-label .m-out { color: #ff7a70; } }
 .swatches { display: flex; flex-wrap: wrap; gap: 10px; }
 .swatch { width: 46px; height: 46px; border-radius: 50%; border: 3px solid transparent; box-shadow: 0 0 0 1px var(--line); cursor: pointer; display: grid; place-items: center; color: #fff; }
 .swatch svg { width: 22px; height: 22px; visibility: hidden; }
@@ -468,7 +472,7 @@ img { max-width: 100%; }
           <div><b>${list.length}</b><span>Mensalistas</span></div>
         </div>
         <div class="meter" aria-hidden="true"><i style="width:${pct}%"></i></div>
-        <div class="meter-label num"><span>Arrecadado <strong>${brl(arrec)}</strong>${arrecAv ? ` <small>(${brl(arrecAv)} de avulsos)</small>` : ""}</span><span>Quadra <strong>${brl(c.quadra)}</strong>${c.quadra ? ` · ${arrec >= c.quadra ? "sobra " + brl(arrec - c.quadra) : "falta " + brl(c.quadra - arrec)}` : ""}</span></div>
+        <div class="meter-label num"><span>Arrecadado <strong class="m-in">${brl(arrec)}</strong>${arrecAv ? ` <small>(${brl(arrecAv)} de avulsos)</small>` : ""}</span><span>Quadra <strong>${brl(c.quadra)}</strong>${c.quadra ? ` · ${arrec >= c.quadra ? `<strong class="m-in">sobra ${brl(arrec - c.quadra)}</strong>` : `<strong class="m-out">falta ${brl(c.quadra - arrec)}</strong>`}` : ""}</span></div>
       </section>
       <div class="btnrow">
         <div class="seg" style="flex:2 1 260px">
@@ -783,7 +787,7 @@ img { max-width: 100%; }
     openSheet(`${sheetHead(ev.name)}
       <div class="card"><div class="meter-label num" style="margin:0"><span>${fmtDate(ev.date)} · <strong>${brl(ev.price)}</strong> por pessoa</span><span>${st.paid.length}/${st.ids.length} pagos</span></div>
         <div class="meter"><i style="width:${st.ids.length ? st.paid.length / st.ids.length * 100 : 0}%"></i></div>
-        <div class="meter-label num"><span>Arrecadado <strong>${brl(st.total)}</strong></span><span>Falta <strong>${brl(Math.max(0, st.esperado - st.total))}</strong></span></div></div>
+        <div class="meter-label num"><span>Arrecadado <strong class="m-in">${brl(st.total)}</strong></span><span>Falta <strong class="m-out">${brl(Math.max(0, st.esperado - st.total))}</strong></span></div></div>
       <div class="btnrow"><button class="btn ghost" id="evCopy">${ICON.copy}Cobrança</button>${S.canWrite ? `<button class="btn ghost" id="evAdd">${ICON.plus}Adicionar pessoa</button>` : ""}</div>
       <textarea id="evTxt" class="input" readonly hidden></textarea>
       <div id="evAddBox" hidden class="field">
