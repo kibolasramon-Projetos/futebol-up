@@ -12,7 +12,12 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Futebol">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@400;500;600;700&display=swap">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://www.gstatic.com">
+<link rel="preconnect" href="https://firestore.googleapis.com">
+<link rel="preconnect" href="https://identitytoolkit.googleapis.com">
+<link rel="preconnect" href="https://securetoken.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@400;500;600;700&display=swap" media="print" onload="this.media='all'">
 <style>
 /* Layout: app de uma coluna, cabeçalho verde-gramado fixo, abas na base como placar */
 :root {
@@ -294,7 +299,7 @@ img { max-width: 100%; }
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="config.js?v=202610291821"></script>
+<script src="config.js?v=202610301458"></script>
 <script>
 (function () {
   "use strict";
@@ -334,7 +339,7 @@ img { max-width: 100%; }
   }
   applyTheme(store.get("tema", "verde"));
   // Atualização automática: ao abrir ou voltar ao app, confere se há versão nova no site e recarrega.
-  const VERSAO = "202610291821";
+  const VERSAO = "202610301458";
   async function checaVersao() {
     try {
       const r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
@@ -682,7 +687,9 @@ img { max-width: 100%; }
       $("#plEv", el).onclick = e => { const b = e.target.closest("[data-v]"); if (!b) return; ev = b.dataset.v; el.querySelectorAll("#plEv [data-v]").forEach(x => x.setAttribute("aria-pressed", String(x === b))); $("#plIgBox", el).hidden = ev !== "sim"; };
       ["#plAct"].forEach(s => { $(s, el).onclick = e => { const t = e.currentTarget; t.setAttribute("aria-checked", String(t.getAttribute("aria-checked") !== "true")); }; });
       $("#plSave", el).onclick = async () => {
-        const nm = name.value.trim(); if (!nm) { name.focus(); toast("Escreva o nome."); return; }
+        const nm = name.value.trim().replace(/\s+/g, " "); if (!nm) { name.focus(); toast("Escreva o nome."); return; }
+        const dup = S.players.find(o => (!p || o.id !== p.id) && norm(o.name) === norm(nm));
+        if (dup) { name.focus(); toast(`${dup.name} já está cadastrado.`); return; }
         const id = p ? p.id : uid();
         const body = { name: nm, skill: Number($("#plSkill", el).value), pos: d.pos, mensalista: tipo === "mensal", crianca: cat === "crianca", phone: $("#plPhone", el).value.trim(), trazidoPor: $("#plBy", el).value.trim(), evangelico: ev, igreja: ev === "sim" ? $("#plIg", el).value.trim() : "", obs: $("#plObs", el).value.trim(), active: $("#plAct", el).getAttribute("aria-checked") === "true" };
         if (await write(db => db.doc("players/" + id).set(body), p ? "Jogador atualizado" : "Jogador cadastrado")) closeSheet();
@@ -1201,6 +1208,7 @@ img { max-width: 100%; }
   firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(() => {});
   $("#lgEmail").value = store.get("email", "");
   const fdb = firebase.firestore();
+  fdb.enablePersistence({ synchronizeTabs: true }).catch(() => {});
   const ADMIN = String(window.ADMIN_EMAIL || "").toLowerCase();
   let unsubs = [];
   const loginEl = $("#login");
@@ -1223,8 +1231,11 @@ img { max-width: 100%; }
     S.me = u; S.db = null;
     if (!u) { loginEl.hidden = false; return; }
     S.isAdmin = (u.email || "").toLowerCase() === ADMIN;
-    let perfil = null;
-    try { const d = await fdb.doc("colaboradores/" + u.uid).get(); perfil = d.exists ? d.data() : null; } catch (e) {}
+    const pkey = "perfil:" + u.uid;
+    const confere = async () => { try { const d = await fdb.doc("colaboradores/" + u.uid).get(); const pf = d.exists ? d.data() : null; store.set(pkey, pf); return pf; } catch (e) { return store.get(pkey, null); } };
+    let perfil = store.get(pkey, null);
+    if (S.isAdmin || perfil) confere().then(pf => { if (!S.isAdmin && (!pf || pf.ativo === false)) firebase.auth().signOut(); });
+    else perfil = await confere();
     if (!S.isAdmin && (!perfil || perfil.ativo === false)) {
       loginEl.hidden = false; const err = $("#lgErr"); err.textContent = "Seu acesso ainda não foi liberado pelo organizador."; err.hidden = false;
       firebase.auth().signOut(); return;
@@ -1233,9 +1244,50 @@ img { max-width: 100%; }
     S.canWrite = S.isAdmin || perfil.papel !== "leitor";
     const db = fdb; S.db = db;
     const sheetOpenFor = () => $("#sheet") != null;
+    const fresh = {};
+    let juntou = false;
+    // Junta jogadores com o mesmo nome completo: fica o cadastro com mais dados e os pagamentos/avulsos/eventos passam para ele.
+    function juntaDuplicados() {
+      if (juntou || !S.canWrite || !["players", "payments", "avulsos", "events"].every(k => fresh[k])) return;
+      juntou = true;
+      const grupos = {};
+      S.players.forEach(pl => { const k = norm(pl.name); if (k) (grupos[k] = grupos[k] || []).push(pl); });
+      const pontos = pl => S.payments.filter(x => x.playerId === pl.id).length * 10 + S.avulsos.filter(x => x.playerId === pl.id).length * 5 +
+        Object.values(pl).filter(v => v !== "" && v != null && v !== false).length;
+      const batch = db.batch(); const nomes = [];
+      Object.values(grupos).filter(g => g.length > 1).forEach(g => {
+        g.sort((a, b) => pontos(b) - pontos(a));
+        const fica = g[0], sai = g.slice(1);
+        const meses = new Set(S.payments.filter(x => x.playerId === fica.id).map(x => x.month));
+        const extra = {};
+        sai.forEach(d => {
+          ["phone", "trazidoPor", "igreja", "obs", "evangelico"].forEach(f => { if (!fica[f] && !extra[f] && d[f]) extra[f] = d[f]; });
+          S.payments.filter(x => x.playerId === d.id).forEach(x => {
+            const { id: pid, ...dados } = x;
+            if (!meses.has(x.month)) { meses.add(x.month); batch.set(db.doc("payments/" + x.month + "_" + fica.id), Object.assign(dados, { playerId: fica.id })); batch.delete(db.doc("payments/" + pid)); }
+            else batch.update(db.doc("payments/" + pid), { playerId: fica.id }); // mesmo mês pago duas vezes: guarda o registro
+          });
+          S.avulsos.filter(x => x.playerId === d.id).forEach(x => batch.update(db.doc("avulsos/" + x.id), { playerId: fica.id }));
+          S.events.forEach(ev => {
+            const pe = ev.people || {}; if (!pe[d.id]) return;
+            const upd = { ["people." + d.id]: firebase.firestore.FieldValue.delete() };
+            if (!pe[fica.id]) upd["people." + fica.id] = pe[d.id];
+            batch.update(db.doc("events/" + ev.id), upd);
+          });
+          batch.delete(db.doc("players/" + d.id));
+        });
+        if (Object.keys(extra).length) batch.update(db.doc("players/" + fica.id), extra);
+        nomes.push(fica.name + (sai.length > 1 ? ` (${sai.length + 1}x)` : ""));
+      });
+      if (!nomes.length) return;
+      batch.commit().then(() => toast("Cadastros repetidos juntados: " + nomes.join(", "))).catch(() => { juntou = false; });
+    }
+    let rq = 0; const renderLogo = () => { if (!rq) rq = requestAnimationFrame(() => { rq = 0; if (!sheetOpenFor()) render(); }); };
     const sub = (ref, onDocs, key) => unsubs.push(ref.onSnapshot(snap => {
       onDocs(snap); S.loaded[key] = true;
-      if (!sheetOpenFor()) render();
+      if (!(snap.metadata && snap.metadata.fromCache)) fresh[key] = true;
+      juntaDuplicados();
+      if (!sheetOpenFor()) renderLogo();
     }, () => { S.loaded[key] = true; render(); }));
     sub(db.collection("players"), s => { S.players = s.docs.map(d => Object.assign({ id: d.id }, d.data())); }, "players");
     sub(db.collection("payments"), s => { S.payments = s.docs.map(d => Object.assign({ id: d.id }, d.data())); }, "payments");
