@@ -299,7 +299,7 @@ img { max-width: 100%; }
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="config.js?v=202610301458"></script>
+<script src="config.js?v=202610301501"></script>
 <script>
 (function () {
   "use strict";
@@ -339,7 +339,7 @@ img { max-width: 100%; }
   }
   applyTheme(store.get("tema", "verde"));
   // Atualização automática: ao abrir ou voltar ao app, confere se há versão nova no site e recarrega.
-  const VERSAO = "202610301458";
+  const VERSAO = "202610301501";
   async function checaVersao() {
     try {
       const r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
@@ -686,13 +686,17 @@ img { max-width: 100%; }
       $("#plTipo", el).onclick = e => { const b = e.target.closest("[data-v]"); if (!b) return; tipo = b.dataset.v; el.querySelectorAll("#plTipo [data-v]").forEach(x => x.setAttribute("aria-pressed", String(x === b))); };
       $("#plEv", el).onclick = e => { const b = e.target.closest("[data-v]"); if (!b) return; ev = b.dataset.v; el.querySelectorAll("#plEv [data-v]").forEach(x => x.setAttribute("aria-pressed", String(x === b))); $("#plIgBox", el).hidden = ev !== "sim"; };
       ["#plAct"].forEach(s => { $(s, el).onclick = e => { const t = e.currentTarget; t.setAttribute("aria-checked", String(t.getAttribute("aria-checked") !== "true")); }; });
-      $("#plSave", el).onclick = async () => {
+      const novoId = uid();
+      $("#plSave", el).onclick = async e => {
+        const btn = e.currentTarget; if (btn.disabled) return;
         const nm = name.value.trim().replace(/\s+/g, " "); if (!nm) { name.focus(); toast("Escreva o nome."); return; }
         const dup = S.players.find(o => (!p || o.id !== p.id) && norm(o.name) === norm(nm));
         if (dup) { name.focus(); toast(`${dup.name} já está cadastrado.`); return; }
-        const id = p ? p.id : uid();
+        const id = p ? p.id : novoId;
         const body = { name: nm, skill: Number($("#plSkill", el).value), pos: d.pos, mensalista: tipo === "mensal", crianca: cat === "crianca", phone: $("#plPhone", el).value.trim(), trazidoPor: $("#plBy", el).value.trim(), evangelico: ev, igreja: ev === "sim" ? $("#plIg", el).value.trim() : "", obs: $("#plObs", el).value.trim(), active: $("#plAct", el).getAttribute("aria-checked") === "true" };
+        btn.disabled = true; btn.textContent = "Gravando…";
         if (await write(db => db.doc("players/" + id).set(body), p ? "Jogador atualizado" : "Jogador cadastrado")) closeSheet();
+        else { btn.disabled = false; btn.textContent = "Gravar"; }
       };
       const del = $("#plDel", el);
       if (del) del.onclick = () => {
@@ -1244,31 +1248,38 @@ img { max-width: 100%; }
     S.canWrite = S.isAdmin || perfil.papel !== "leitor";
     const db = fdb; S.db = db;
     const sheetOpenFor = () => $("#sheet") != null;
-    const fresh = {};
     let juntou = false;
     // Junta jogadores com o mesmo nome completo: fica o cadastro com mais dados e os pagamentos/avulsos/eventos passam para ele.
-    function juntaDuplicados() {
-      if (juntou || !S.canWrite || !["players", "payments", "avulsos", "events"].every(k => fresh[k])) return;
+    async function juntaDuplicados() {
+      if (juntou || !S.canWrite) return;
+      const visto = new Set(); if (!S.players.some(pl => { const k = norm(pl.name); if (visto.has(k)) return true; visto.add(k); return false; })) return;
       juntou = true;
+      // lê direto do servidor para não perder nenhum pagamento que ainda não chegou ao celular
+      let P;
+      try {
+        const [pl, pg, av, ev] = await Promise.all(["players", "payments", "avulsos", "events"].map(c => db.collection(c).get({ source: "server" })));
+        const ls = q => q.docs.map(d => Object.assign({}, d.data(), { id: d.id }));
+        P = { players: ls(pl), payments: ls(pg), avulsos: ls(av), events: ls(ev) };
+      } catch (e) { juntou = false; return; }
       const grupos = {};
-      S.players.forEach(pl => { const k = norm(pl.name); if (k) (grupos[k] = grupos[k] || []).push(pl); });
-      const pontos = pl => S.payments.filter(x => x.playerId === pl.id).length * 10 + S.avulsos.filter(x => x.playerId === pl.id).length * 5 +
+      P.players.forEach(pl => { const k = norm(pl.name); if (k) (grupos[k] = grupos[k] || []).push(pl); });
+      const pontos = pl => P.payments.filter(x => x.playerId === pl.id).length * 10 + P.avulsos.filter(x => x.playerId === pl.id).length * 5 +
         Object.values(pl).filter(v => v !== "" && v != null && v !== false).length;
       const batch = db.batch(); const nomes = [];
       Object.values(grupos).filter(g => g.length > 1).forEach(g => {
         g.sort((a, b) => pontos(b) - pontos(a));
         const fica = g[0], sai = g.slice(1);
-        const meses = new Set(S.payments.filter(x => x.playerId === fica.id).map(x => x.month));
+        const meses = new Set(P.payments.filter(x => x.playerId === fica.id).map(x => x.month));
         const extra = {};
         sai.forEach(d => {
           ["phone", "trazidoPor", "igreja", "obs", "evangelico"].forEach(f => { if (!fica[f] && !extra[f] && d[f]) extra[f] = d[f]; });
-          S.payments.filter(x => x.playerId === d.id).forEach(x => {
+          P.payments.filter(x => x.playerId === d.id).forEach(x => {
             const { id: pid, ...dados } = x;
             if (!meses.has(x.month)) { meses.add(x.month); batch.set(db.doc("payments/" + x.month + "_" + fica.id), Object.assign(dados, { playerId: fica.id })); batch.delete(db.doc("payments/" + pid)); }
             else batch.update(db.doc("payments/" + pid), { playerId: fica.id }); // mesmo mês pago duas vezes: guarda o registro
           });
-          S.avulsos.filter(x => x.playerId === d.id).forEach(x => batch.update(db.doc("avulsos/" + x.id), { playerId: fica.id }));
-          S.events.forEach(ev => {
+          P.avulsos.filter(x => x.playerId === d.id).forEach(x => batch.update(db.doc("avulsos/" + x.id), { playerId: fica.id }));
+          P.events.forEach(ev => {
             const pe = ev.people || {}; if (!pe[d.id]) return;
             const upd = { ["people." + d.id]: firebase.firestore.FieldValue.delete() };
             if (!pe[fica.id]) upd["people." + fica.id] = pe[d.id];
@@ -1285,8 +1296,7 @@ img { max-width: 100%; }
     let rq = 0; const renderLogo = () => { if (!rq) rq = requestAnimationFrame(() => { rq = 0; if (!sheetOpenFor()) render(); }); };
     const sub = (ref, onDocs, key) => unsubs.push(ref.onSnapshot(snap => {
       onDocs(snap); S.loaded[key] = true;
-      if (!(snap.metadata && snap.metadata.fromCache)) fresh[key] = true;
-      juntaDuplicados();
+      if (key === "players") juntaDuplicados();
       if (!sheetOpenFor()) renderLogo();
     }, () => { S.loaded[key] = true; render(); }));
     sub(db.collection("players"), s => { S.players = s.docs.map(d => Object.assign({ id: d.id }, d.data())); }, "players");
