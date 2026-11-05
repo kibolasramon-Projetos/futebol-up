@@ -299,7 +299,7 @@ img { max-width: 100%; }
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="config.js?v=202611051328"></script>
+<script src="config.js?v=202611051343"></script>
 <script>
 (function () {
   "use strict";
@@ -339,7 +339,7 @@ img { max-width: 100%; }
   }
   applyTheme(store.get("tema", "verde"));
   // Atualização automática: ao abrir ou voltar ao app, confere se há versão nova no site e recarrega.
-  const VERSAO = "202611051328";
+  const VERSAO = "202611051343";
   async function checaVersao() {
     try {
       const r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
@@ -394,6 +394,10 @@ img { max-width: 100%; }
   }
   const byPrio = (a, b) => { const x = prio(a), y = prio(b); return x.g - y.g || x.key.localeCompare(y.key) || sortName(a, b); };
   const playerById = id => S.players.find(p => p.id === id);
+  // Nível do jogador: Bom / Médio / Ruim (guardado como nota 9 / 6 / 3 para o equilíbrio dos times)
+  const NIVEIS = [["bom", "Bom", 9, "ok"], ["medio", "Médio", 6, "warn"], ["ruim", "Ruim", 3, "bad"]];
+  const nivel = p => { if (p.crianca) return "ruim"; const n = Number(p.skill ?? 5); return n >= 7 ? "bom" : n >= 4 ? "medio" : "ruim"; };
+  const nivelPill = p => { const n = NIVEIS.find(x => x[0] === nivel(p)); return `<span class="pill ${n[3]}">${n[1]}</span>`; };
   const mensalistas = () => S.players.filter(p => p.active !== false && p.mensalista !== false).sort(sortName);
   const payOf = (pid, month) => S.payments.find(p => p.playerId === pid && p.month === month);
   const lastPaidMonth = pid => S.payments.filter(p => p.playerId === pid).map(p => p.month).sort().pop();
@@ -530,7 +534,7 @@ img { max-width: 100%; }
         ${all.length ? all.map(p => `<button class="row" data-edit="${esc(p.id)}" ${p.active === false ? 'style="opacity:.55"' : ""}>
           <span class="pos ${p.pos === "G" ? "g" : ""}">${esc(p.pos || "A")}</span>
           <span class="main"><div class="name">${esc(p.name)}</div><div class="sub">${esc((POS.find(x => x[0] === p.pos) || POS[6])[1])}${p.crianca ? " · criança" : ""}${p.mensalista === false ? " · avulso" : " · mensalista"}${p.evangelico === "sim" ? " · evangélico" : p.evangelico === "nao" ? " · não evangélico" : ""}${p.active === false ? " · inativo" : ""}</div>${p.phone || p.trazidoPor ? `<div class="sub num">${esc([p.phone, p.trazidoPor ? "veio por " + p.trazidoPor : ""].filter(Boolean).join(" · "))}</div>` : ""}</span>
-          <span class="skill num">${Number(p.skill ?? 5).toFixed(1)}</span></button>`).join("")
+          ${nivelPill(p)}</button>`).join("")
         : `<div class="empty"><b>${q ? "Ninguém com esse nome" : "Nenhum jogador"}</b>${q ? "" : "Toque em Novo jogador para começar."}</div>`}
       </div>`;
   }
@@ -672,14 +676,15 @@ img { max-width: 100%; }
       <div class="field"><span class="lbl">É evangélico?</span>${seg("plEv", [["sim", "Sim"], ["nao", "Não"], ["", "Não perguntei"]], d.evangelico || "")}</div>
       <div class="field" id="plIgBox" ${d.evangelico === "sim" ? "" : "hidden"}><label for="plIg">Qual igreja?</label><input id="plIg" class="input" placeholder="Opcional" value="${esc(d.igreja)}" autocomplete="off"></div>
       <div class="field"><label for="plObs">Observações</label><input id="plObs" class="input" placeholder="Opcional" value="${esc(d.obs)}" autocomplete="off"></div>
-      <div class="field"><span class="lbl">Habilidade</span><div class="skillval num" id="skVal">${Number(d.skill).toFixed(1)}</div>
-        <input id="plSkill" type="range" min="0" max="10" step="0.5" value="${d.skill}" aria-label="Habilidade de 0 a 10"><div class="ticks num">${[0,1,2,3,4,5,6,7,8,9,10].map(i => `<span>${i}</span>`).join("")}</div></div>
+      <div class="field"><span class="lbl">Joga como?</span>${seg("plNivel", NIVEIS.map(n => [n[0], n[1]]), nivel(d))}
+        <div style="font-size:13px;color:var(--muted)">No sorteio, os bons e os ruins são espalhados igualmente entre os times. Criança conta sempre como Ruim.</div></div>
       <div class="field"><span class="lbl">Posição</span><div class="chips" id="plPos">${POS.map(([k, l]) => `<button class="chip posc" data-p="${k}" aria-pressed="${d.pos === k}"><b>${k}</b>${l}</button>`).join("")}</div></div>
       <button class="toggle" id="plAct" role="switch" aria-checked="${d.active !== false}"><span class="main"><b>Ativo</b><div style="font-size:13px;color:var(--muted)">Inativos somem do sorteio e da cobrança</div></span><span class="sw"></span></button>
       <button class="btn primary block" id="plSave">Gravar</button>
       ${p ? `<div id="delBox"><button class="btn danger block" id="plDel">Excluir jogador</button></div>` : ""}`, el => {
       const name = $("#plName", el); if (!p) setTimeout(() => name.focus(), 50);
-      $("#plSkill", el).oninput = e => { $("#skVal", el).textContent = Number(e.target.value).toFixed(1); };
+      let niv = nivel(d);
+      $("#plNivel", el).onclick = e => { const b = e.target.closest("[data-v]"); if (!b) return; niv = b.dataset.v; el.querySelectorAll("#plNivel [data-v]").forEach(x => x.setAttribute("aria-pressed", String(x === b))); };
       $("#plPos", el).onclick = e => { const b = e.target.closest("[data-p]"); if (!b) return; d.pos = b.dataset.p; el.querySelectorAll("[data-p]").forEach(x => x.setAttribute("aria-pressed", String(x === b))); };
       let tipo = d.mensalista === false ? "avulso" : "mensal", ev = d.evangelico || "", cat = d.crianca ? "crianca" : "adulto";
       $("#plCat", el).onclick = e => { const b = e.target.closest("[data-v]"); if (!b) return; cat = b.dataset.v; el.querySelectorAll("#plCat [data-v]").forEach(x => x.setAttribute("aria-pressed", String(x === b))); };
@@ -693,7 +698,7 @@ img { max-width: 100%; }
         const dup = S.players.find(o => (!p || o.id !== p.id) && norm(o.name) === norm(nm));
         if (dup) { name.focus(); toast(`${dup.name} já está cadastrado.`); return; }
         const id = p ? p.id : novoId;
-        const body = { name: nm, skill: Number($("#plSkill", el).value), pos: d.pos, mensalista: tipo === "mensal", crianca: cat === "crianca", phone: $("#plPhone", el).value.trim(), trazidoPor: $("#plBy", el).value.trim(), evangelico: ev, igreja: ev === "sim" ? $("#plIg", el).value.trim() : "", obs: $("#plObs", el).value.trim(), active: $("#plAct", el).getAttribute("aria-checked") === "true" };
+        const body = { name: nm, skill: niv === nivel(d) ? Number(d.skill ?? 5) : NIVEIS.find(n => n[0] === niv)[2], nivel: niv, pos: d.pos, mensalista: tipo === "mensal", crianca: cat === "crianca", phone: $("#plPhone", el).value.trim(), trazidoPor: $("#plBy", el).value.trim(), evangelico: ev, igreja: ev === "sim" ? $("#plIg", el).value.trim() : "", obs: $("#plObs", el).value.trim(), active: $("#plAct", el).getAttribute("aria-checked") === "true" };
         btn.disabled = true; btn.textContent = "Gravando…";
         if (await write(db => db.doc("players/" + id).set(body), p ? "Jogador atualizado" : "Jogador cadastrado")) closeSheet();
         else { btn.disabled = false; btn.textContent = "Gravar"; }
@@ -1189,7 +1194,7 @@ img { max-width: 100%; }
     if (full >= 2) { caps = Array(full).fill(perTeam); if (rem) caps.push(rem); }
     else { caps = [Math.ceil(n / 2), Math.floor(n / 2)]; } // menos de 2 times completos: divide em dois
     const teams = caps.map(cap => ({ cap, list: [], sum: 0 }));
-    const sk = p => useSkill ? Number(p.skill ?? 5) : 5;
+    const sk = p => useSkill ? (p.crianca ? Math.min(3, Number(p.skill ?? 3)) : Number(p.skill ?? 5)) : 5;
     const place = (p, t) => { t.list.push(p); t.sum += sk(p); };
     const gks = shuffle(players.filter(p => p.pos === "G"));
     const line = shuffle(players.filter(p => p.pos !== "G"));
@@ -1198,16 +1203,18 @@ img { max-width: 100%; }
     const extraG = [];
     gks.forEach((g, i) => { if (i < order.length) place(g, teams[order[i]]); else extraG.push(g); });
     let pool = line.concat(extraG);
-    if (useSkill) pool.sort((a, b) => sk(b) - sk(a));
-    if (usePos) {
+    // distribui primeiro os bons, depois os médios e por último os ruins, cada um no time que tem menos daquele nível
+    if (useSkill) pool = ["bom", "medio", "ruim"].flatMap(n => shuffle(pool.filter(p => nivel(p) === n)).sort((a, b) => sk(b) - sk(a)));
+    else if (usePos) {
       const rank = { Z: 0, LE: 1, LD: 1, V: 2, M: 3, A: 4, G: 5 };
-      // agrupa por posição mantendo habilidade decrescente dentro do grupo
       pool = pool.map((p, i) => ({ p, i })).sort((a, b) => (rank[a.p.pos] ?? 4) - (rank[b.p.pos] ?? 4) || a.i - b.i).map(x => x.p);
     }
+    const menor = (arr, f) => { const v = arr.map(f); const mn = Math.min(...v); return arr.filter((t, i) => v[i] - mn < 1e-9); };
     pool.forEach(p => {
       const open = teams.filter(t => t.list.length < t.cap);
       let best = open;
-      if (usePos) { const cnt = t => t.list.filter(x => x.pos === p.pos).length; const mn = Math.min(...open.map(cnt)); best = open.filter(t => cnt(t) === mn); }
+      if (useSkill) best = menor(best, t => t.list.filter(x => x.pos !== "G" && nivel(x) === nivel(p)).length / t.cap);
+      if (usePos) best = menor(best, t => t.list.filter(x => x.pos === p.pos).length);
       const load = t => (t.sum + (useSkill ? 0 : Math.random())) / t.cap + t.list.length / t.cap * 0.01;
       const mn = Math.min(...best.map(load));
       const cands = best.filter(t => Math.abs(load(t) - mn) < 1e-9);
@@ -1226,8 +1233,9 @@ img { max-width: 100%; }
       const ps = t.ids.map(playerById).filter(Boolean);
       ps.sort((a, b) => (b.pos === "G") - (a.pos === "G") || Number(b.skill ?? 5) - Number(a.skill ?? 5));
       const sum = ps.reduce((a, p) => a + Number(p.skill ?? 5), 0);
-      return `<article class="team ${t.full ? "" : "reserve"}"><header><h4>Time ${i + 1}</h4><span class="num">${ps.length} jog. · média ${(ps.length ? sum / ps.length : 0).toFixed(2)} · total ${sum.toFixed(1)}</span></header>
-        <ul>${ps.map(p => `<li><span class="pos ${p.pos === "G" ? "g" : ""}">${esc(p.pos || "A")}</span><span class="n">${esc(p.name)}</span><span class="skill num" style="font-size:16px">${Number(p.skill ?? 5).toFixed(1)}</span></li>`).join("")}</ul></article>`;
+      const qt = n => ps.filter(p => p.pos !== "G" && nivel(p) === n).length;
+      return `<article class="team ${t.full ? "" : "reserve"}"><header><h4>Time ${i + 1}</h4><span class="num">${ps.length} jog. · ${qt("bom")} bons · ${qt("medio")} médios · ${qt("ruim")} ruins</span></header>
+        <ul>${ps.map(p => `<li><span class="pos ${p.pos === "G" ? "g" : ""}">${esc(p.pos || "A")}</span><span class="n">${esc(p.name)}</span>${nivelPill(p)}</li>`).join("")}</ul></article>`;
     }).join("");
     openSheet(`${sheetHead("Times")}
       <div class="teams">${html}</div>
@@ -1243,7 +1251,7 @@ img { max-width: 100%; }
       <div class="card stepper" style="justify-content:space-between"><span style="font-weight:600">Jogadores por time</span><span class="stepper"><button class="round" id="pMinus" aria-label="Menos">−</button><b id="pN" class="num">${per}</b><button class="round" id="pPlus" aria-label="Mais">+</button></span></div>
       <p id="pInfo" class="num" style="margin:0;color:var(--muted)"></p>
       <button class="toggle" id="pPos" role="switch" aria-checked="${S.usePos}"><span class="main"><b>Considerar posições</b><div style="font-size:13px;color:var(--muted)">Goleiros sempre ficam em times diferentes</div></span><span class="sw"></span></button>
-      <button class="toggle" id="pSkill" role="switch" aria-checked="${S.useSkill}"><span class="main"><b>Considerar habilidade</b><div style="font-size:13px;color:var(--muted)">Equilibra a soma das notas</div></span><span class="sw"></span></button>
+      <button class="toggle" id="pSkill" role="switch" aria-checked="${S.useSkill}"><span class="main"><b>Equilibrar bons e ruins</b><div style="font-size:13px;color:var(--muted)">Espalha os bons, médios e ruins igualmente entre os times</div></span><span class="sw"></span></button>
       <button class="btn primary block" id="pGo">${ICON.shuffle}Sortear times</button>`, el => {
       const info = () => {
         const n = S.present.size, g = [...S.present].map(playerById).filter(p => p && p.pos === "G").length;
