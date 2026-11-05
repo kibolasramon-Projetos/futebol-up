@@ -299,7 +299,7 @@ img { max-width: 100%; }
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="config.js?v=202611051311"></script>
+<script src="config.js?v=202611051328"></script>
 <script>
 (function () {
   "use strict";
@@ -339,7 +339,7 @@ img { max-width: 100%; }
   }
   applyTheme(store.get("tema", "verde"));
   // Atualização automática: ao abrir ou voltar ao app, confere se há versão nova no site e recarrega.
-  const VERSAO = "202611051311";
+  const VERSAO = "202611051328";
   async function checaVersao() {
     try {
       const r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
@@ -805,12 +805,24 @@ img { max-width: 100%; }
     const ids = Object.keys(people).filter(id => playerById(id) || people[id].guest);
     const out = S.players.filter(p => p.active !== false && !people[p.id]).sort(sortName);
     const st = evStats(ev);
+    const gastos = ev.gastos || [];
+    const totGasto = gastos.reduce((a, g) => a + (Number(g.valor) || 0), 0);
+    const sugestao = st.ids.length && totGasto ? Math.ceil(totGasto / st.ids.length) : 0;
     const nameOf = id => (playerById(id) || {}).name || people[id].guest || "?";
     ids.sort((a, b) => (people[a].paid === true) - (people[b].paid === true) || nameOf(a).localeCompare(nameOf(b), "pt-BR"));
     openSheet(`${sheetHead(ev.name)}
       <div class="card"><div class="meter-label num" style="margin:0"><span>${fmtDate(ev.date)} · <strong>${brl(ev.price)}</strong> por pessoa</span><span>${st.paid.length}/${st.ids.length} pagos</span></div>
         <div class="meter"><i style="width:${st.ids.length ? st.paid.length / st.ids.length * 100 : 0}%"></i></div>
         <div class="meter-label num"><span>Arrecadado <strong class="m-in">${brl(st.total)}</strong></span><span>Falta <strong class="m-out">${brl(Math.max(0, st.esperado - st.total))}</strong></span></div></div>
+      <div class="card" id="evGastos" style="display:flex;flex-direction:column;gap:10px">
+        <span class="lbl">Gastos do evento</span>
+        ${gastos.length ? gastos.map(g => `<div style="display:flex;align-items:center;gap:8px;font-size:15px"><span style="flex:1;min-width:0">${esc(g.desc)}</span><b class="num">${brl(g.valor)}</b>${S.canWrite ? `<button class="x" data-gdel="${esc(g.id)}" aria-label="Tirar gasto">${ICON.x}</button>` : ""}</div>`).join("") : `<span style="color:var(--muted);font-size:14px">Nenhum gasto anotado ainda.</span>`}
+        ${S.canWrite ? `<div style="display:flex;gap:8px"><input id="gDesc" class="input" placeholder="O que comprou (ex: carne)" style="flex:2;min-width:0"><input id="gVal" class="input num" inputmode="decimal" placeholder="R$" style="flex:1;min-width:0"><button class="btn primary" id="gAdd">Incluir</button></div>` : ""}
+        <div class="meter-label num" style="margin:0;font-size:15px"><span>Total gasto <strong class="m-out">${brl(totGasto)}</strong></span><span>Saldo <strong class="${st.total >= totGasto ? "m-in" : "m-out"}">${brl(st.total - totGasto)}</strong></span></div>
+        ${totGasto ? `<div style="font-size:15px">Dividindo por <b>${st.ids.length}</b> ${st.ids.length === 1 ? "pessoa" : "pessoas"}: ${st.ids.length ? `<b class="num">≈ ${brl(sugestao)}</b> por pessoa` : "adicione os participantes"}</div>` : ""}
+        ${S.canWrite ? `<div style="display:flex;gap:8px;align-items:end"><div class="field" style="flex:1;margin:0"><label for="evPreco">Valor por pessoa</label><input id="evPreco" class="input num" inputmode="decimal" value="${String(Number(ev.price) || 0).replace(".", ",")}"></div><button class="btn primary" id="evPrecoSave">Salvar valor</button></div>
+        ${sugestao && sugestao !== Number(ev.price) ? `<button class="btn ghost block" id="evUsaSug">Usar ${brl(sugestao)} por pessoa</button>` : ""}` : ""}
+      </div>
       <div class="btnrow"><button class="btn primary" id="evZap">${ICON.copy}Lista no WhatsApp</button>${S.canWrite ? `<button class="btn ghost" id="evColar">${ICON.check}Colar respostas</button>` : ""}</div>
       <div class="btnrow"><button class="btn ghost" id="evCopy">${ICON.copy}Cobrança</button>${S.canWrite ? `<button class="btn ghost" id="evAdd">${ICON.plus}Adicionar pessoa</button>` : ""}</div>
       <textarea id="evTxt" class="input" readonly hidden></textarea>
@@ -842,6 +854,21 @@ img { max-width: 100%; }
       };
       const add = $("#evAdd", el); if (add) add.onclick = () => { const b = $("#evAddBox", el); b.hidden = !b.hidden; };
       $("#evZap", el).onclick = () => sheetEventZap(ev.id);
+      const money = v => parseFloat(String(v || "0").replace(/\s|R\$/g, "").replace(/\.(?=\d{3}(\D|$))/g, "").replace(",", ".")) || 0;
+      const setPreco = async v => { if (await save({ price: v }, "Valor por pessoa: " + brl(v))) reopen(); };
+      const gAdd = $("#gAdd", el);
+      if (gAdd) gAdd.onclick = async () => {
+        const desc = $("#gDesc", el).value.trim(), valor = money($("#gVal", el).value);
+        if (!desc) { toast("Escreva o que foi comprado."); $("#gDesc", el).focus(); return; }
+        if (!valor) { toast("Escreva o valor."); $("#gVal", el).focus(); return; }
+        if (await save({ gastos: gastos.concat([{ id: uid(), desc, valor, at: todayISO() }]) }, "Gasto anotado")) reopen();
+      };
+      $("#evGastos", el).addEventListener("click", async e => {
+        const d = e.target.closest("[data-gdel]"); if (!d) return;
+        if (await save({ gastos: gastos.filter(g => g.id !== d.dataset.gdel) }, "Gasto removido")) reopen();
+      });
+      const ps = $("#evPrecoSave", el); if (ps) ps.onclick = () => setPreco(money($("#evPreco", el).value));
+      const us = $("#evUsaSug", el); if (us) us.onclick = () => setPreco(sugestao);
       const col = $("#evColar", el); if (col) col.onclick = () => sheetEventColar(ev.id);
       el.onclick = async e => {
         const a = e.target.closest("[data-addp]"); if (a) { const np = Object.assign({}, people, { [a.dataset.addp]: { paid: false } }); if (await save({ people: np })) reopen(); return; }
