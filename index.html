@@ -299,7 +299,7 @@ img { max-width: 100%; }
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="config.js?v=202610301501"></script>
+<script src="config.js?v=202611051311"></script>
 <script>
 (function () {
   "use strict";
@@ -339,7 +339,7 @@ img { max-width: 100%; }
   }
   applyTheme(store.get("tema", "verde"));
   // Atualização automática: ao abrir ou voltar ao app, confere se há versão nova no site e recarrega.
-  const VERSAO = "202610301501";
+  const VERSAO = "202611051311";
   async function checaVersao() {
     try {
       const r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
@@ -811,6 +811,7 @@ img { max-width: 100%; }
       <div class="card"><div class="meter-label num" style="margin:0"><span>${fmtDate(ev.date)} · <strong>${brl(ev.price)}</strong> por pessoa</span><span>${st.paid.length}/${st.ids.length} pagos</span></div>
         <div class="meter"><i style="width:${st.ids.length ? st.paid.length / st.ids.length * 100 : 0}%"></i></div>
         <div class="meter-label num"><span>Arrecadado <strong class="m-in">${brl(st.total)}</strong></span><span>Falta <strong class="m-out">${brl(Math.max(0, st.esperado - st.total))}</strong></span></div></div>
+      <div class="btnrow"><button class="btn primary" id="evZap">${ICON.copy}Lista no WhatsApp</button>${S.canWrite ? `<button class="btn ghost" id="evColar">${ICON.check}Colar respostas</button>` : ""}</div>
       <div class="btnrow"><button class="btn ghost" id="evCopy">${ICON.copy}Cobrança</button>${S.canWrite ? `<button class="btn ghost" id="evAdd">${ICON.plus}Adicionar pessoa</button>` : ""}</div>
       <textarea id="evTxt" class="input" readonly hidden></textarea>
       <div id="evAddBox" hidden class="field">
@@ -819,7 +820,7 @@ img { max-width: 100%; }
       </div>
       <div class="list">
         ${ids.length ? ids.map(id => { const x = people[id]; return `<div class="row">
-          <span class="main"><div class="name">${esc(nameOf(id))}${x.guest ? ' <span class="pill mute">convidado</span>' : ""}</div><div class="sub num">${x.paid ? `Pagou ${brl(x.amount || ev.price)} · ${fmtDateShort(x.paidAt)} · ${esc(x.method || "")}` : "Não pagou"}</div></span>
+          <span class="main"><div class="name">${esc(nameOf(id))}${x.guest ? ' <span class="pill mute">convidado</span>' : ""}</div><div class="sub num">${x.vai ? "Vai ✅ · " : ""}${x.paid ? `Pagou ${brl(x.amount || ev.price)} · ${fmtDateShort(x.paidAt)} · ${esc(x.method || "")}` : "Não pagou"}</div></span>
           ${S.canWrite ? `<button class="pill ${x.paid ? "ok" : "bad"}" style="border:0;padding:8px 12px" data-epay="${esc(id)}">${x.paid ? "Pago ✓" : "Marcar pago"}</button>
           <button class="x" data-erm="${esc(id)}" aria-label="Tirar do evento">${ICON.x}</button>` : `<span class="pill ${x.paid ? "ok" : "bad"}">${x.paid ? "Pago" : "Devendo"}</span>`}
         </div>`; }).join("") : `<div class="empty"><b>Ninguém no evento</b>Toque em Adicionar pessoa.</div>`}
@@ -840,6 +841,8 @@ img { max-width: 100%; }
         copyText(txt, $("#evTxt", el));
       };
       const add = $("#evAdd", el); if (add) add.onclick = () => { const b = $("#evAddBox", el); b.hidden = !b.hidden; };
+      $("#evZap", el).onclick = () => sheetEventZap(ev.id);
+      const col = $("#evColar", el); if (col) col.onclick = () => sheetEventColar(ev.id);
       el.onclick = async e => {
         const a = e.target.closest("[data-addp]"); if (a) { const np = Object.assign({}, people, { [a.dataset.addp]: { paid: false } }); if (await save({ people: np })) reopen(); return; }
         const pBtn = e.target.closest("[data-epay]");
@@ -861,6 +864,65 @@ img { max-width: 100%; }
     });
   }
 
+  // Lista de presença do evento: cada um põe ✅ ou ❌ no nome e devolve no grupo
+  const evLista = ev => {
+    const people = ev.people || {};
+    const pl = S.players.filter(p => p.active !== false || people[p.id]).sort(sortName).map(p => ({ id: p.id, name: p.name }));
+    const gs = Object.keys(people).filter(k => people[k].guest).map(k => ({ id: k, name: people[k].guest }));
+    return pl.concat(gs);
+  };
+  function sheetEventZap(evId) {
+    const ev = S.events.find(e => e.id === evId); if (!ev) return;
+    const people = ev.people || {}, c = cfg();
+    const txt = `🍖 *${ev.name}* — ${fmtDate(ev.date)}\n` + (ev.price ? `Valor: ${brl(ev.price)} por pessoa\n` : "") +
+      `\nVai participar? Copie a lista, coloque ✅ no seu nome (ou ❌ se não vai) e mande de volta no grupo.\n\n` +
+      evLista(ev).map((p, i) => `${i + 1}. ${p.name}${people[p.id] && people[p.id].vai ? " ✅" : ""}`).join("\n") +
+      `\n\nVai levar alguém? Escreva o nome no fim da lista com ✅` + (ev.price ? pixText(c) : "");
+    openSheet(`${sheetHead("Presença: " + ev.name)}
+      <p style="margin:0;font-size:14px">Mande no grupo. Cada pessoa marca ✅ ou ❌ no nome e devolve. Depois cole a última lista em <b>Colar respostas</b>.</p>
+      <textarea id="ezTxt" class="input" readonly style="min-height:220px">${esc(txt)}</textarea>
+      <div class="btnrow"><a class="btn primary" href="https://wa.me/?text=${encodeURIComponent(txt)}" target="_blank" rel="noopener">Abrir no WhatsApp</a><button class="btn ghost" id="ezCopy">${ICON.copy}Copiar texto</button></div>
+      <button class="btn ghost block" id="ezBack">Voltar ao evento</button>`, el => {
+      $("#ezCopy", el).onclick = () => copyText(txt, $("#ezTxt", el));
+      $("#ezBack", el).onclick = () => sheetEvent(ev.id);
+    });
+  }
+  function sheetEventColar(evId) {
+    const ev = S.events.find(e => e.id === evId); if (!ev) return;
+    openSheet(`${sheetHead("Respostas: " + ev.name)}
+      <p style="margin:0;font-size:14px">No WhatsApp, segure a última lista, toque em <b>Copiar</b> e cole aqui. Quem tiver ✅ entra no evento, quem tiver ❌ sai (se ainda não pagou).</p>
+      <textarea id="ecTxt" class="input" placeholder="Cole aqui a lista do WhatsApp" style="min-height:180px"></textarea>
+      <div id="ecRes"></div>
+      <button class="btn primary block" id="ecGo" disabled>${ICON.check}Anotar respostas</button>`, el => {
+      let res = null;
+      const show = () => {
+        res = parseZap($("#ecTxt", el).value, evLista(ev));
+        const { found, out, unknown } = res;
+        $("#ecGo", el).disabled = !found.length && !out.length && !unknown.length;
+        $("#ecRes", el).innerHTML = $("#ecTxt", el).value.trim() ? `<div class="card" style="display:flex;flex-direction:column;gap:8px;font-size:14px">
+          <div><span class="pill ok">${found.length} vão</span> ${esc(found.map(p => p.name).join(", "))}</div>
+          ${out.length ? `<div><span class="pill bad">${out.length} não vão</span> ${esc(out.map(p => p.name).join(", "))}</div>` : ""}
+          ${unknown.length ? `<div><span class="pill warn">${unknown.length} convidados</span> ${esc(unknown.join(", "))}</div>` : ""}</div>` : "";
+      };
+      $("#ecTxt", el).addEventListener("input", show);
+      $("#ecTxt", el).addEventListener("paste", () => setTimeout(show, 0));
+      $("#ecGo", el).onclick = async () => {
+        const cur = S.events.find(e => e.id === ev.id) || ev;
+        const np = Object.assign({}, cur.people || {});
+        res.found.forEach(p => { np[p.id] = Object.assign({ paid: false }, np[p.id], { vai: true }); });
+        res.out.forEach(p => { if (np[p.id] && np[p.id].paid) np[p.id] = Object.assign({}, np[p.id], { vai: false }); else delete np[p.id]; });
+        const gs = Object.values(np).filter(x => x.guest).map(x => norm(x.guest));
+        res.unknown.forEach(nm => { if (!gs.includes(norm(nm))) np["g_" + uid()] = { paid: false, guest: nm, vai: true }; });
+        const body = Object.assign({}, cur, { people: np }); delete body.id;
+        $("#ecGo", el).disabled = true;
+        if (await write(db => db.doc("events/" + ev.id).set(body), `${res.found.length + res.unknown.length} vão participar`)) {
+          S.events = S.events.map(x => x.id === ev.id ? Object.assign({}, body, { id: ev.id }) : x);
+          sheetEvent(ev.id);
+        } else $("#ecGo", el).disabled = false;
+      };
+    });
+  }
+
   function sheetAvulsoNew() {
     const c = cfg(); let method = store.get("method", "Pix"); let paid = true;
     const date0 = todayISO();
@@ -874,7 +936,7 @@ img { max-width: 100%; }
       </div>
       <div class="field"><span class="lbl">Quem jogou</span>
         <div class="chips" id="avWho">${cands.map(p => `<button class="chip" data-w="${esc(p.id)}" aria-pressed="${sel.has(p.id)}">${esc(p.name)}</button>`).join("") || '<span style="color:var(--muted)">Nenhum jogador marcado como avulso. Digite o nome abaixo.</span>'}</div>
-        <div style="display:flex;gap:8px"><input id="avName" class="input" placeholder="Outro nome (visitante)" autocomplete="off"><button class="btn ghost" id="avAddName">Incluir</button></div>
+        <div style="display:flex;gap:8px"><input id="avName" class="input" placeholder="Visitante: nome completo" autocomplete="off"><button class="btn ghost" id="avAddName">Incluir</button></div>
         <div class="chips" id="avGuests"></div></div>
       <button class="toggle" id="avPaid" role="switch" aria-checked="true"><span class="main"><b>Já pagou</b><div style="font-size:13px;color:var(--muted)">Desmarque se ficou devendo</div></span><span class="sw"></span></button>
       <div class="field" id="avMethBox"><span class="lbl">Forma de pagamento</span><div class="chips" id="avMeth">${FORMAS.map(f => `<button class="chip" data-m="${f}" aria-pressed="${f === method}">${f}</button>`).join("")}</div></div>
@@ -889,12 +951,14 @@ img { max-width: 100%; }
       $("#avMeth", el).onclick = e => { const b = e.target.closest("[data-m]"); if (!b) return; method = b.dataset.m; store.set("method", method); el.querySelectorAll("#avMeth [data-m]").forEach(x => x.setAttribute("aria-pressed", String(x === b))); };
       $("#avSave", el).onclick = async () => {
         const pending = $("#avName", el).value.trim(); if (pending) addName();
-        const who = [...sel].map(id => ({ playerId: id, name: (playerById(id) || {}).name || "?" })).concat(guests.map(g => ({ playerId: null, name: g })));
+        const who = [...sel].map(id => ({ playerId: id, name: (playerById(id) || {}).name || "?" })).concat(guests.map(g => ({ playerId: null, name: g.trim().replace(/\s+/g, " ") })));
         if (!who.length) { toast("Escolha quem jogou."); return; }
         const amount = parseFloat(($("#avVal", el).value || "0").replace(/\./g, "").replace(",", ".")) || 0;
         const date = $("#avDate", el).value || todayISO();
         const btn = $("#avSave", el); btn.disabled = true;
         const ok = await write(async db => {
+          for (const w of who) if (!w.playerId) w.playerId = await garanteAvulso(db, w.name);
+          if (date === todayISO()) { who.forEach(w => { S.present.add(w.playerId); S.removed.delete(w.playerId); }); saveDay(); }
           for (const w of who) await db.doc("avulsos/" + uid()).set({ playerId: w.playerId, name: w.name, date, amount, paid, method: paid ? method : "", paidAt: paid ? todayISO() : "", createdAt: new Date().toISOString() });
         }, who.length > 1 ? `${who.length} avulsos registrados` : "Avulso registrado");
         if (ok) closeSheet(); else btn.disabled = false;
@@ -926,6 +990,17 @@ img { max-width: 100%; }
   const DIAS = ["domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado"];
   function nextGame() { const d = new Date(); const alvo = Number(cfg().diaJogo ?? 5); while (d.getDay() !== alvo) d.setDate(d.getDate() + 1); return d; }
   const norm = t => String(t || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
+  // Visitante vira cadastro de avulso (sem repetir nome completo) e já entra na lista dos Times.
+  async function garanteAvulso(db, nome) {
+    const nm = String(nome || "").trim().replace(/\s+/g, " "); if (!nm) return null;
+    const ja = S.players.find(p => norm(p.name) === norm(nm));
+    if (ja) { if (ja.active === false) await db.doc("players/" + ja.id).update({ active: true }); return ja.id; }
+    const id = uid();
+    const body = { name: nm, skill: 5, pos: "M", mensalista: false, crianca: false, active: true, phone: "", trazidoPor: "", evangelico: "", igreja: "", obs: "", createdAt: new Date().toISOString() };
+    await db.doc("players/" + id).set(body);
+    if (!playerById(id)) S.players = S.players.concat([Object.assign({ id }, body)]);
+    return id;
+  }
   const OKMARK = /✅|✔|☑|🟢|👍/;
   const NOMARK = /❌|✖|🔴|👎/;
   function zapText() {
@@ -951,8 +1026,8 @@ img { max-width: 100%; }
       $("#zpCopy", el).onclick = () => copyText(txt, $("#zpTxt", el));
     });
   }
-  function parseZap(text) {
-    const act = S.players.filter(p => p.active !== false);
+  function parseZap(text, lista) {
+    const act = lista || S.players.filter(p => p.active !== false);
     const found = [], out = [], unknown = [];
     text.split(/\r?\n/).forEach(raw => {
       const ok = OKMARK.test(raw), no = NOMARK.test(raw);
@@ -979,11 +1054,16 @@ img { max-width: 100%; }
         $("#zcRes", el).innerHTML = $("#zcTxt", el).value.trim() ? `<div class="card" style="display:flex;flex-direction:column;gap:8px;font-size:14px">
           <div><span class="pill ok">${found.length} vão jogar</span> ${esc(found.map(p => p.name).join(", "))}</div>
           ${out.length ? `<div><span class="pill bad">${out.length} não vão</span> ${esc(out.map(p => p.name).join(", "))}</div>` : ""}
-          ${unknown.length ? `<div><span class="pill warn">${unknown.length} fora do elenco</span> ${esc(unknown.join(", "))}<div style="color:var(--muted)">Cadastre na aba Jogadores (como avulso) e cole de novo.</div></div>` : ""}</div>` : "";
+          ${unknown.length ? `<div><span class="pill warn">${unknown.length} novos</span> ${esc(unknown.join(", "))}<div style="color:var(--muted)">Serão cadastrados como avulsos e marcados para jogar.</div></div>` : ""}</div>` : "";
+        if (unknown.length) $("#zcGo", el).disabled = false;
       };
       $("#zcTxt", el).addEventListener("input", show);
       $("#zcTxt", el).addEventListener("paste", () => setTimeout(show, 0));
-      $("#zcGo", el).onclick = () => {
+      $("#zcGo", el).onclick = async () => {
+        if (res.unknown.length && S.canWrite) {
+          $("#zcGo", el).disabled = true;
+          await write(async db => { for (const nm of res.unknown) { const id = await garanteAvulso(db, nm); if (id) res.found.push({ id }); } });
+        }
         res.found.forEach(p => { S.present.add(p.id); S.removed.delete(p.id); });
         res.out.forEach(p => { S.present.delete(p.id); S.removed.add(p.id); });
         saveDay(); closeSheet(); toast(`${res.found.length} confirmados marcados`);
