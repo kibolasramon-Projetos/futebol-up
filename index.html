@@ -299,7 +299,7 @@ img { max-width: 100%; }
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="config.js?v=202611051343"></script>
+<script src="config.js?v=202611051712"></script>
 <script>
 (function () {
   "use strict";
@@ -339,7 +339,7 @@ img { max-width: 100%; }
   }
   applyTheme(store.get("tema", "verde"));
   // Atualização automática: ao abrir ou voltar ao app, confere se há versão nova no site e recarrega.
-  const VERSAO = "202611051343";
+  const VERSAO = "202611051712";
   async function checaVersao() {
     try {
       const r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
@@ -397,7 +397,6 @@ img { max-width: 100%; }
   // Nível do jogador: Bom / Médio / Ruim (guardado como nota 9 / 6 / 3 para o equilíbrio dos times)
   const NIVEIS = [["bom", "Bom", 9, "ok"], ["medio", "Médio", 6, "warn"], ["ruim", "Ruim", 3, "bad"]];
   const nivel = p => { if (p.crianca) return "ruim"; const n = Number(p.skill ?? 5); return n >= 7 ? "bom" : n >= 4 ? "medio" : "ruim"; };
-  const nivelPill = p => { const n = NIVEIS.find(x => x[0] === nivel(p)); return `<span class="pill ${n[3]}">${n[1]}</span>`; };
   const mensalistas = () => S.players.filter(p => p.active !== false && p.mensalista !== false).sort(sortName);
   const payOf = (pid, month) => S.payments.find(p => p.playerId === pid && p.month === month);
   const lastPaidMonth = pid => S.payments.filter(p => p.playerId === pid).map(p => p.month).sort().pop();
@@ -534,7 +533,7 @@ img { max-width: 100%; }
         ${all.length ? all.map(p => `<button class="row" data-edit="${esc(p.id)}" ${p.active === false ? 'style="opacity:.55"' : ""}>
           <span class="pos ${p.pos === "G" ? "g" : ""}">${esc(p.pos || "A")}</span>
           <span class="main"><div class="name">${esc(p.name)}</div><div class="sub">${esc((POS.find(x => x[0] === p.pos) || POS[6])[1])}${p.crianca ? " · criança" : ""}${p.mensalista === false ? " · avulso" : " · mensalista"}${p.evangelico === "sim" ? " · evangélico" : p.evangelico === "nao" ? " · não evangélico" : ""}${p.active === false ? " · inativo" : ""}</div>${p.phone || p.trazidoPor ? `<div class="sub num">${esc([p.phone, p.trazidoPor ? "veio por " + p.trazidoPor : ""].filter(Boolean).join(" · "))}</div>` : ""}</span>
-          ${nivelPill(p)}</button>`).join("")
+          </button>`).join("")
         : `<div class="empty"><b>${q ? "Ninguém com esse nome" : "Nenhum jogador"}</b>${q ? "" : "Toque em Novo jogador para começar."}</div>`}
       </div>`;
   }
@@ -1188,7 +1187,27 @@ img { max-width: 100%; }
 
   // ---------- sorteio ----------
   function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+  // Sorteia várias vezes e fica com a divisão mais equilibrada (bons, médios e ruins iguais em cada time, goleiro incluído)
   function drawTeams(players, perTeam, useSkill, usePos) {
+    if (!useSkill) return drawOnce(players, perTeam, false, usePos);
+    const PESO = { bom: 1000, ruim: 300, medio: 100 };
+    const by = Object.fromEntries(players.map(p => [p.id, p]));
+    const nota = p => p.crianca ? Math.min(3, Number(p.skill ?? 3)) : Number(p.skill ?? 5);
+    const range = v => Math.max(...v) - Math.min(...v);
+    const score = teams => {
+      const ts = teams.filter(t => t.full).map(t => t.ids.map(id => by[id]));
+      if (ts.length < 2) return 0;
+      let sc = 0;
+      for (const n in PESO) sc += PESO[n] * range(ts.map(ps => ps.filter(p => nivel(p) === n).length));
+      sc += 10 * range(ts.map(ps => ps.reduce((a, p) => a + nota(p), 0)));
+      if (usePos) ["Z", "M", "A"].forEach(k => { sc += range(ts.map(ps => ps.filter(p => (p.pos === k || (k === "Z" && /LE|LD|V/.test(p.pos || "")))).length)); });
+      return sc;
+    };
+    let best = null, bestSc = Infinity;
+    for (let i = 0; i < 400 && bestSc > 0; i++) { const t = drawOnce(players, perTeam, true, usePos); const sc = score(t); if (sc < bestSc) { best = t; bestSc = sc; } }
+    return best;
+  }
+  function drawOnce(players, perTeam, useSkill, usePos) {
     const n = players.length; const full = Math.floor(n / perTeam), rem = n % perTeam;
     let caps;
     if (full >= 2) { caps = Array(full).fill(perTeam); if (rem) caps.push(rem); }
@@ -1213,7 +1232,7 @@ img { max-width: 100%; }
     pool.forEach(p => {
       const open = teams.filter(t => t.list.length < t.cap);
       let best = open;
-      if (useSkill) best = menor(best, t => t.list.filter(x => x.pos !== "G" && nivel(x) === nivel(p)).length / t.cap);
+      if (useSkill) best = menor(best, t => t.list.filter(x => nivel(x) === nivel(p)).length / t.cap);
       if (usePos) best = menor(best, t => t.list.filter(x => x.pos === p.pos).length);
       const load = t => (t.sum + (useSkill ? 0 : Math.random())) / t.cap + t.list.length / t.cap * 0.01;
       const mn = Math.min(...best.map(load));
@@ -1231,11 +1250,10 @@ img { max-width: 100%; }
   function sheetTeams(sorteio) {
     const html = sorteio.teams.map((t, i) => {
       const ps = t.ids.map(playerById).filter(Boolean);
-      ps.sort((a, b) => (b.pos === "G") - (a.pos === "G") || Number(b.skill ?? 5) - Number(a.skill ?? 5));
+      ps.sort((a, b) => (b.pos === "G") - (a.pos === "G") || a.name.localeCompare(b.name, "pt-BR"));
       const sum = ps.reduce((a, p) => a + Number(p.skill ?? 5), 0);
-      const qt = n => ps.filter(p => p.pos !== "G" && nivel(p) === n).length;
-      return `<article class="team ${t.full ? "" : "reserve"}"><header><h4>Time ${i + 1}</h4><span class="num">${ps.length} jog. · ${qt("bom")} bons · ${qt("medio")} médios · ${qt("ruim")} ruins</span></header>
-        <ul>${ps.map(p => `<li><span class="pos ${p.pos === "G" ? "g" : ""}">${esc(p.pos || "A")}</span><span class="n">${esc(p.name)}</span>${nivelPill(p)}</li>`).join("")}</ul></article>`;
+      return `<article class="team ${t.full ? "" : "reserve"}"><header><h4>Time ${i + 1}</h4><span class="num">${ps.length} jogadores</span></header>
+        <ul>${ps.map(p => `<li><span class="pos ${p.pos === "G" ? "g" : ""}">${esc(p.pos || "A")}</span><span class="n">${esc(p.name)}</span></li>`).join("")}</ul></article>`;
     }).join("");
     openSheet(`${sheetHead("Times")}
       <div class="teams">${html}</div>
