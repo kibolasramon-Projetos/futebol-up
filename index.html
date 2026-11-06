@@ -299,7 +299,7 @@ img { max-width: 100%; }
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="config.js?v=202611061840"></script>
+<script src="config.js?v=202611061846"></script>
 <script>
 (function () {
   "use strict";
@@ -339,17 +339,21 @@ img { max-width: 100%; }
   }
   applyTheme(store.get("tema", "verde"));
   // Atualização automática: ao abrir ou voltar ao app, confere se há versão nova no site e recarrega.
-  const VERSAO = "202611061840";
+  const VERSAO = "202611061846";
   async function checaVersao() {
     try {
       const r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
       const v = (await r.json()).v;
-      if (v && v !== VERSAO && !location.search.includes("v=" + v) && !document.getElementById("sheet")) location.replace(location.pathname + "?v=" + v);
+      if (!v || v <= VERSAO || document.getElementById("sheet")) return;
+      // só recarrega quando a página nova já está sendo servida (evita ficar preso numa cópia antiga do servidor)
+      const t = Date.now(), html = await (await fetch(location.pathname + "?v=" + v + "&t=" + t, { cache: "no-store" })).text();
+      if (html.includes('VERSAO = "' + v + '"')) location.replace(location.pathname + "?v=" + v + "&t=" + t);
     } catch (e) {}
   }
+  const atualizarAgora = () => location.replace(location.pathname + "?t=" + Date.now());
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") checaVersao(); });
   window.addEventListener("pageshow", checaVersao);
-  setInterval(checaVersao, 5 * 60 * 1000);
+  setInterval(checaVersao, 60 * 1000);
   const ICON = {
     left: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>',
     right: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>',
@@ -786,13 +790,14 @@ img { max-width: 100%; }
         ${S.isAdmin ? `<div class="btnrow"><button class="btn ghost" id="stExport">Baixar backup</button><label class="btn ghost" for="stImport" style="cursor:pointer">Restaurar backup</label></div><input id="stImport" type="file" accept=".json,application/json" hidden><div id="stImpMsg" style="font-size:13px"></div>` : ""}
         ${S.isAdmin ? `<button class="btn ghost block" id="stMigra">Passar pagamentos e avulsos de outubro para novembro</button>` : ""}
         <button class="btn danger block" id="stLogout">Sair</button>
-        <div style="font-size:12px;color:var(--muted);text-align:center">Versão ${VERSAO}</div>
+        <div style="font-size:12px;color:var(--muted);text-align:center">Versão ${VERSAO} · <button class="linkbtn" id="stAtualiza" style="font-size:12px;padding:2px">Atualizar agora</button></div>
       </div>
       <p style="margin:0;color:var(--muted);font-size:13px">Dica: no iPhone, abra no Safari, toque em Compartilhar e depois em "Adicionar à Tela de Início" para usar como aplicativo.</p>`, el => {
       const num = s => parseFloat(String(s || "0").replace(/\./g, "").replace(",", ".")) || 0;
       $("#stDiv", el).onclick = () => { const q = num($("#stQuadra", el).value); if (!q || !n) { toast("Informe o valor da quadra."); return; } $("#stMens", el).value = (Math.ceil(q / n * 100) / 100).toFixed(2).replace(".", ","); };
       $("#stLogout", el).onclick = () => { closeSheet(); firebase.auth().signOut(); };
       $("#stRel", el).onclick = () => sheetRelatorio();
+      $("#stAtualiza", el).onclick = () => { closeSheet(); atualizarAgora(); };
       const mg = $("#stMigra", el); if (mg) mg.onclick = async () => { mg.disabled = true; mg.textContent = "Passando…"; closeSheet(); await S.migraOutNov(); };
       const ex = $("#stExport", el); if (ex) ex.onclick = exportBackup;
       const im = $("#stImport", el); if (im) im.onchange = () => importBackup(im.files[0], $("#stImpMsg", el));
@@ -1403,7 +1408,8 @@ img { max-width: 100%; }
     if (rest.length) {
       const isG = p => p.pos === "G", gm = () => main.filter(isG).length, gr = () => rest.filter(isG).length;
       const troca = (gi, xi) => { const g = main[gi]; main[gi] = rest[xi]; rest[xi] = g; };
-      const quer = gm() + gr() > full ? 1 : 0; // o próximo só tem goleiro se sobrar goleiro depois dos times completos
+      // os times completos ficam com um goleiro cada; os goleiros que sobrarem vão para o próximo
+      const quer = Math.min(rest.length, Math.max(0, gm() + gr() - full));
       const ultimo = f => { for (let i = main.length - 1; i >= 0; i--) if (f(main[i])) return i; return -1; };
       for (let n = 0; n < 20 && gr() < quer; n++) { const gi = ultimo(isG), xi = rest.findIndex(p => !isG(p)); if (gi < 0 || xi < 0) break; troca(gi, xi); }
       for (let n = 0; n < 20 && gr() > quer; n++) { const gi = ultimo(p => !isG(p)), xi = rest.findIndex(isG); if (gi < 0 || xi < 0) break; troca(gi, xi); }
