@@ -299,7 +299,7 @@ img { max-width: 100%; }
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="config.js?v=202611061834"></script>
+<script src="config.js?v=202611061840"></script>
 <script>
 (function () {
   "use strict";
@@ -339,7 +339,7 @@ img { max-width: 100%; }
   }
   applyTheme(store.get("tema", "verde"));
   // Atualização automática: ao abrir ou voltar ao app, confere se há versão nova no site e recarrega.
-  const VERSAO = "202611061834";
+  const VERSAO = "202611061840";
   async function checaVersao() {
     try {
       const r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
@@ -1399,6 +1399,15 @@ img { max-width: 100%; }
     // quem pagou primeiro joga; o resto da fila (avulsos e crianças por último) vai para o próximo
     const full = Math.floor(ps.length / S.perTeam);
     const main = full >= 2 ? ps.slice(0, full * S.perTeam) : ps, rest = full >= 2 ? ps.slice(full * S.perTeam) : [];
+    // goleiros: cada time (inclusive o próximo) recebe um goleiro antes de algum time ter dois
+    if (rest.length) {
+      const isG = p => p.pos === "G", gm = () => main.filter(isG).length, gr = () => rest.filter(isG).length;
+      const troca = (gi, xi) => { const g = main[gi]; main[gi] = rest[xi]; rest[xi] = g; };
+      const quer = gm() + gr() > full ? 1 : 0; // o próximo só tem goleiro se sobrar goleiro depois dos times completos
+      const ultimo = f => { for (let i = main.length - 1; i >= 0; i--) if (f(main[i])) return i; return -1; };
+      for (let n = 0; n < 20 && gr() < quer; n++) { const gi = ultimo(isG), xi = rest.findIndex(p => !isG(p)); if (gi < 0 || xi < 0) break; troca(gi, xi); }
+      for (let n = 0; n < 20 && gr() > quer; n++) { const gi = ultimo(p => !isG(p)), xi = rest.findIndex(isG); if (gi < 0 || xi < 0) break; troca(gi, xi); }
+    }
     const teams = drawTeams(main, S.perTeam, S.useSkill, S.usePos);
     if (rest.length) teams.push({ ids: rest.map(p => p.id), full: false });
     const cores = coletes(); teams.forEach((t, i) => { if (cores[i]) t.cor = cores[i]; });
