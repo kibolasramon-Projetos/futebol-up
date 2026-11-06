@@ -299,7 +299,7 @@ img { max-width: 100%; }
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="config.js?v=202611061816"></script>
+<script src="config.js?v=202611061827"></script>
 <script>
 (function () {
   "use strict";
@@ -339,7 +339,7 @@ img { max-width: 100%; }
   }
   applyTheme(store.get("tema", "verde"));
   // Atualização automática: ao abrir ou voltar ao app, confere se há versão nova no site e recarrega.
-  const VERSAO = "202611061816";
+  const VERSAO = "202611061827";
   async function checaVersao() {
     try {
       const r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
@@ -744,7 +744,7 @@ img { max-width: 100%; }
   function sheetSettings() {
     const c = cfg(); const n = mensalistas().length;
     openSheet(`${sheetHead("Configurações")}
-      <button class="btn primary block" id="stRel">📊 Relatório de frequência e pagamentos</button>
+      <button class="btn primary block" id="stRel">📊 Relatório: frequência, pagamentos e eventos</button>
       <div class="field"><label for="stGrupo">Nome do grupo</label><input id="stGrupo" class="input" value="${esc(c.grupo)}"></div>
       <div class="field"><label for="stColetes">Cores dos coletes (na ordem dos times)</label><input id="stColetes" class="input" value="${esc(c.coletes)}" placeholder="Amarelo, Verde, Vermelho, Preto, Lilás"></div>
       <div class="grid2">
@@ -817,6 +817,15 @@ img { max-width: 100%; }
     });
     const linha = (nome, dir, cls = "") => `<div style="display:flex;gap:8px;padding:7px 0;border-bottom:1px solid var(--line);font-size:15px"><span style="flex:1;min-width:0">${nome}</span><span class="num ${cls}" style="font-weight:700">${dir}</span></div>`;
     const bloco = (titulo, itens) => `<div class="card" style="padding:12px 14px"><span class="lbl">${titulo}</span>${itens || '<div style="color:var(--muted);padding:8px 0">Ninguém ainda.</div>'}</div>`;
+    const evs = S.events.slice().sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+    const mapa = {};
+    evs.forEach(ev => Object.entries(ev.people || {}).forEach(([id, x]) => {
+      const pl = playerById(id); const nome = pl ? pl.name : x.guest; if (!nome) return;
+      const k = pl ? id : "g:" + norm(nome);
+      (mapa[k] = mapa[k] || { nome, evs: [], dev: 0 }).evs.push({ name: ev.name, pago: !!x.paid });
+      if (!x.paid) mapa[k].dev++;
+    }));
+    const evPessoas = Object.values(mapa).sort((a, b) => b.evs.length - a.evs.length || a.nome.localeCompare(b.nome, "pt-BR"));
     const veioMais = freq.filter(x => x.veio).sort((a, b) => b.veio - a.veio || sortName(a.p, b.p));
     const faltouMais = freq.filter(x => x.faltou).sort((a, b) => b.faltou - a.faltou || sortName(a.p, b.p));
     const devendo = mens.filter(x => x.dev.length).sort((a, b) => b.dev.length - a.dev.length || sortName(a.p, b.p));
@@ -826,7 +835,10 @@ img { max-width: 100%; }
       ${bloco("Quem veio mais vezes", veioMais.map(x => linha(esc(x.p.name), `${x.veio} ${x.veio === 1 ? "jogo" : "jogos"}`, "m-in")).join(""))}
       ${bloco("Quem faltou mais", faltouMais.map(x => linha(esc(x.p.name), `${x.faltou} ${x.faltou === 1 ? "falta" : "faltas"}`, "m-out")).join(""))}
       ${bloco("Mensalistas devendo", devendo.map(x => linha(esc(x.p.name) + `<div style="font-size:12px;color:var(--muted)">${x.dev.map(monthShort).join(", ")}</div>`, `${x.dev.length} ${x.dev.length === 1 ? "mês" : "meses"} · ${brl(x.dev.length * (cfg().mensalidade || 0))}`, "m-out")).join(""))}
-      ${bloco("Pagaram todos os meses", emDia.map(x => linha(esc(x.p.name), `${x.pagos.length}/${x.meses.length} pagos${x.emDia === x.pagos.length ? " · sempre em dia" : ""}`, "m-in")).join(""))}`, () => {});
+      ${bloco("Pagaram todos os meses", emDia.map(x => linha(esc(x.p.name), `${x.pagos.length}/${x.meses.length} pagos${x.emDia === x.pagos.length ? " · sempre em dia" : ""}`, "m-in")).join(""))}
+      ${bloco(`Participação nos eventos (${evs.length})`, evPessoas.map(x => linha(esc(x.nome) + `<div style="font-size:12px;color:var(--muted)">${x.evs.map(e => esc(e.name) + (e.pago ? " ✅" : " ⏳")).join(" · ")}</div>`, `${x.evs.length} ${x.evs.length === 1 ? "evento" : "eventos"}${x.dev ? ` · deve ${x.dev}` : ""}`, x.dev ? "m-out" : "m-in")).join(""))}
+      ${bloco("Eventos", evs.map(ev => { const st = evStats(ev); return linha(esc(ev.name) + `<div style="font-size:12px;color:var(--muted)">${fmtDate(ev.date)}</div>`, `${st.paid.length}/${st.ids.length} pagaram`, st.paid.length === st.ids.length ? "m-in" : "m-out"); }).join(""))}
+      <p style="margin:0;font-size:13px;color:var(--muted)">✅ pagou · ⏳ ainda não pagou</p>`, () => {});
   }
 
   function sheetCobranca() {
