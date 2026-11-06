@@ -299,7 +299,7 @@ img { max-width: 100%; }
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="config.js?v=202611061758"></script>
+<script src="config.js?v=202611061802"></script>
 <script>
 (function () {
   "use strict";
@@ -339,7 +339,7 @@ img { max-width: 100%; }
   }
   applyTheme(store.get("tema", "verde"));
   // Atualização automática: ao abrir ou voltar ao app, confere se há versão nova no site e recarrega.
-  const VERSAO = "202611061758";
+  const VERSAO = "202611061802";
   async function checaVersao() {
     try {
       const r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
@@ -408,7 +408,8 @@ img { max-width: 100%; }
     const iso = lp ? dueISO(addMonth(lp, 1), cfg().vencimento) : dueISO(S.month, cfg().vencimento);
     return { iso, lp, late: todayISO() > iso };
   }
-  const avulsosDoMes = month => S.avulsos.filter(a => (a.date || "").slice(0, 7) === month).sort((a, b) => (b.date || "").localeCompare(a.date || "") || (a.name || "").localeCompare(b.name || "", "pt-BR"));
+  const refAv = a => a.ref || (a.date || "").slice(0, 7);
+  const avulsosDoMes = month => S.avulsos.filter(a => refAv(a) === month).sort((a, b) => (b.date || "").localeCompare(a.date || "") || (a.name || "").localeCompare(b.name || "", "pt-BR"));
 
   function statusFor(p, month) {
     const pay = payOf(p.id, month);
@@ -516,7 +517,7 @@ img { max-width: 100%; }
       <div class="list">
         ${avs.length ? avs.map(a => `<button class="row" data-avulso="${esc(a.id)}">
           <span class="pos" style="width:46px;font-size:15px">${fmtDateShort(a.date)}</span>
-          <span class="main"><div class="name">${esc(a.name)}</div><div class="sub num">${brl(a.amount)}${a.paid ? " · " + esc(a.method || "") : ""}</div></span>
+          <span class="main"><div class="name">${esc(a.name)}</div><div class="sub num">${brl(a.amount)}${a.paid ? " · " + esc(a.method || "") : ""} · referente a ${monthShort(refAv(a))}</div></span>
           <span class="pill ${a.paid ? "ok" : "bad"}">${a.paid ? "Pago" : "Devendo"}</span></button>`).join("")
         : `<div class="empty">Nenhum jogo avulso em ${monthLabel(m).toLowerCase()}. Quem paga por jogo entra aqui.</div>`}
       </div>`;
@@ -985,6 +986,7 @@ img { max-width: 100%; }
         <div class="field"><label for="avDate">Data do jogo</label><input id="avDate" class="input" type="date" value="${date0}"></div>
         <div class="field"><label for="avVal">Valor por jogo</label><input id="avVal" class="input num" inputmode="decimal" value="${String(c.avulso).replace(".", ",")}"></div>
       </div>
+      <div class="field"><label for="avRef">Referente ao mês</label><select id="avRef" class="input">${[-2, -1, 0, 1, 2].map(i => addMonth(S.month, i)).map(k => `<option value="${k}" ${k === S.month ? "selected" : ""}>${monthLabel(k)}</option>`).join("")}</select></div>
       <div class="field"><span class="lbl">Quem jogou</span>
         <div class="chips" id="avWho">${cands.map(p => `<button class="chip" data-w="${esc(p.id)}" aria-pressed="${sel.has(p.id)}">${esc(p.name)}</button>`).join("") || '<span style="color:var(--muted)">Nenhum jogador marcado como avulso. Digite o nome abaixo.</span>'}</div>
         <div style="display:flex;gap:8px"><input id="avName" class="input" placeholder="Visitante: nome completo" autocomplete="off"><button class="btn ghost" id="avAddName">Incluir</button></div>
@@ -1009,12 +1011,13 @@ img { max-width: 100%; }
         const amount = parseFloat(($("#avVal", el).value || "0").replace(/\./g, "").replace(",", ".")) || 0;
         const date = $("#avDate", el).value || todayISO();
         const by = $("#avBy", el).value.trim();
+        const ref = $("#avRef", el).value || S.month;
         const btn = $("#avSave", el); btn.disabled = true;
         const ok = await write(async db => {
           for (const w of who) if (!w.playerId) w.playerId = await garanteAvulso(db, w.name, by);
           if (by) for (const w of who) { const pl = playerById(w.playerId); if (pl && !pl.trazidoPor) await db.doc("players/" + pl.id).update({ trazidoPor: by }); }
           if (date === todayISO()) { who.forEach(w => { S.present.add(w.playerId); S.removed.delete(w.playerId); }); saveDay(); }
-          for (const w of who) await db.doc("avulsos/" + uid()).set({ playerId: w.playerId, name: w.name, date, amount, paid, method: paid ? method : "", paidAt: paid ? todayISO() : "", trazidoPor: by, createdAt: new Date().toISOString() });
+          for (const w of who) await db.doc("avulsos/" + uid()).set({ playerId: w.playerId, name: w.name, date, amount, paid, method: paid ? method : "", paidAt: paid ? todayISO() : "", trazidoPor: by, ref, createdAt: new Date().toISOString() });
         }, who.length > 1 ? `${who.length} avulsos registrados` : "Avulso registrado");
         if (ok) closeSheet(); else btn.disabled = false;
       };
@@ -1024,12 +1027,19 @@ img { max-width: 100%; }
     const a = S.avulsos.find(x => x.id === id); if (!a) return;
     openSheet(`${sheetHead(a.name)}
       <div class="card num" style="font-size:16px">Jogo de <b>${fmtDate(a.date)}</b> · ${brl(a.amount)}<br>
+        Referente a <b>${monthLabel(refAv(a))}</b><br>
         ${a.trazidoPor ? `Veio através de <b>${esc(a.trazidoPor)}</b><br>` : ""}
         ${a.paid ? `<span class="pill ok">Pago</span> via ${esc(a.method)} em ${fmtDate(a.paidAt)}` : `<span class="pill bad">Devendo</span>`}</div>
       ${S.canWrite ? `<div class="btnrow">
         <button class="btn ${a.paid ? "ghost" : "primary"}" id="aiToggle">${a.paid ? "Marcar como não pago" : ICON.check + "Marcar como pago (" + esc(store.get("method", "Pix")) + ")"}</button></div>
+        <div class="card" style="display:flex;flex-direction:column;gap:10px"><label class="lbl" for="aiRef">Mudar referência</label>
+          <div style="display:flex;gap:8px"><select id="aiRef" class="input" style="flex:1">${[-3, -2, -1, 0, 1, 2, 3].map(i => addMonth(refAv(a), i)).map(k => `<option value="${k}" ${k === refAv(a) ? "selected" : ""}>${monthLabel(k)}</option>`).join("")}</select><button class="btn primary" id="aiRefSave">Mudar</button></div></div>
         <div id="aiDelBox"><button class="btn danger block" id="aiDel">Excluir registro</button></div>` : ""}`, el => {
       const tg = $("#aiToggle", el); if (!tg) return;
+      $("#aiRefSave", el).onclick = async () => {
+        const k = $("#aiRef", el).value; if (k === refAv(a)) { closeSheet(); return; }
+        if (await write(db => db.doc("avulsos/" + a.id).update({ ref: k }), `Avulso agora é referente a ${monthLabel(k)}`)) closeSheet();
+      };
       tg.onclick = async () => {
         const body = Object.assign({}, a); delete body.id;
         Object.assign(body, a.paid ? { paid: false, method: "", paidAt: "" } : { paid: true, method: store.get("method", "Pix"), paidAt: todayISO() });
@@ -1413,12 +1423,15 @@ img { max-width: 100%; }
       if (migrou || !S.isAdmin) return; migrou = true;
       try {
         const flag = await db.doc("config/migracoes").get({ source: "server" });
-        if (flag.exists && flag.data().out2nov) return;
-        const [pg, pl] = await Promise.all([db.collection("payments").get({ source: "server" }), db.collection("players").get({ source: "server" })]);
+        const fl = flag.exists ? flag.data() : {};
+        if (fl.out2nov && fl.av_out2nov) return;
+        const [pg, pl, avq] = await Promise.all(["payments", "players", "avulsos"].map(c => db.collection(c).get({ source: "server" })));
         const pays = pg.docs.map(d => Object.assign({}, d.data(), { id: d.id }));
         const players = Object.fromEntries(pl.docs.map(d => [d.id, d.data()]));
         const batch = db.batch(); const movidos = [], conflitos = [];
-        pays.filter(x => x.month === "2026-10").forEach(x => {
+        let avMov = 0;
+        if (!fl.av_out2nov) avq.docs.forEach(d => { const a = d.data(); if ((a.ref || (a.date || "").slice(0, 7)) === "2026-10") { batch.update(db.doc("avulsos/" + d.id), { ref: "2026-11", movidoDe: "2026-10" }); avMov++; } });
+        if (!fl.out2nov) pays.filter(x => x.month === "2026-10").forEach(x => {
           const nome = (players[x.playerId] || {}).name || "jogador excluído";
           if (pays.some(y => y.playerId === x.playerId && y.month === "2026-11")) { conflitos.push(nome); return; }
           const { id, ...dados } = x;
@@ -1427,11 +1440,12 @@ img { max-width: 100%; }
           if (players[x.playerId] && !players[x.playerId].desde) batch.update(db.doc("players/" + x.playerId), { desde: "2026-10" });
           movidos.push(nome);
         });
-        batch.set(db.doc("config/migracoes"), { out2nov: true, at: new Date().toISOString(), movidos, conflitos }, { merge: true });
+        batch.set(db.doc("config/migracoes"), Object.assign({ av_out2nov: true, avMovidos: avMov }, fl.out2nov ? {} : { out2nov: true, at: new Date().toISOString(), movidos, conflitos }), { merge: true });
         await batch.commit();
-        if (movidos.length || conflitos.length) setTimeout(() => openSheet(`${sheetHead("Pagamentos de outubro")}
+        if (movidos.length || conflitos.length || avMov) setTimeout(() => openSheet(`${sheetHead("Pagamentos de outubro")}
           <p style="margin:0;font-size:15px">Os pagamentos que estavam em outubro agora são <b>referentes a novembro</b>. A data em que pagaram continua a mesma. Outubro ficou em aberto para você marcar depois.</p>
           ${movidos.length ? `<div class="card" style="font-size:15px"><span class="pill ok">${movidos.length} passaram para novembro</span><div style="margin-top:8px">${movidos.map(esc).join(", ")}</div></div>` : ""}
+          ${avMov ? `<div class="card" style="font-size:15px"><span class="pill ok">${avMov} ${avMov === 1 ? "avulso passou" : "avulsos passaram"} para novembro</span></div>` : ""}
           ${conflitos.length ? `<div class="card" style="font-size:15px"><span class="pill warn">${conflitos.length} não mudaram</span><div style="margin-top:8px">${conflitos.map(esc).join(", ")}</div><div style="color:var(--muted);margin-top:6px">Já tinham pagamento em novembro, então o de outubro ficou em outubro.</div></div>` : ""}
           <button class="btn primary block" data-close>Entendi</button>`), 600);
       } catch (e) { migrou = false; toast("Não consegui passar os pagamentos de outubro para novembro (" + (e.code || e.message || "erro") + ")."); }
