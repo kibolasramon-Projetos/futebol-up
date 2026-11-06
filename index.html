@@ -299,7 +299,7 @@ img { max-width: 100%; }
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="config.js?v=202611061802"></script>
+<script src="config.js?v=202611061804"></script>
 <script>
 (function () {
   "use strict";
@@ -339,7 +339,7 @@ img { max-width: 100%; }
   }
   applyTheme(store.get("tema", "verde"));
   // Atualização automática: ao abrir ou voltar ao app, confere se há versão nova no site e recarrega.
-  const VERSAO = "202611061802";
+  const VERSAO = "202611061804";
   async function checaVersao() {
     try {
       const r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
@@ -764,12 +764,15 @@ img { max-width: 100%; }
         <span class="lbl">Conta</span>
         <div style="font-size:14px">Conectado como <b>${esc(S.me ? S.me.email : "")}</b>${S.isAdmin ? " · administrador" : S.canWrite ? " · colaborador" : " · só visualiza"}</div>
         ${S.isAdmin ? `<div class="btnrow"><button class="btn ghost" id="stExport">Baixar backup</button><label class="btn ghost" for="stImport" style="cursor:pointer">Restaurar backup</label></div><input id="stImport" type="file" accept=".json,application/json" hidden><div id="stImpMsg" style="font-size:13px"></div>` : ""}
+        ${S.isAdmin ? `<button class="btn ghost block" id="stMigra">Passar pagamentos e avulsos de outubro para novembro</button>` : ""}
         <button class="btn danger block" id="stLogout">Sair</button>
+        <div style="font-size:12px;color:var(--muted);text-align:center">Versão ${VERSAO}</div>
       </div>
       <p style="margin:0;color:var(--muted);font-size:13px">Dica: no iPhone, abra no Safari, toque em Compartilhar e depois em "Adicionar à Tela de Início" para usar como aplicativo.</p>`, el => {
       const num = s => parseFloat(String(s || "0").replace(/\./g, "").replace(",", ".")) || 0;
       $("#stDiv", el).onclick = () => { const q = num($("#stQuadra", el).value); if (!q || !n) { toast("Informe o valor da quadra."); return; } $("#stMens", el).value = (Math.ceil(q / n * 100) / 100).toFixed(2).replace(".", ","); };
       $("#stLogout", el).onclick = () => { closeSheet(); firebase.auth().signOut(); };
+      const mg = $("#stMigra", el); if (mg) mg.onclick = async () => { mg.disabled = true; mg.textContent = "Passando…"; closeSheet(); await S.migraOutNov(); };
       const ex = $("#stExport", el); if (ex) ex.onclick = exportBackup;
       const im = $("#stImport", el); if (im) im.onchange = () => importBackup(im.files[0], $("#stImpMsg", el));
       let tema = TEMAS[c.tema] ? c.tema : "verde";
@@ -1417,13 +1420,14 @@ img { max-width: 100%; }
     const db = fdb; S.db = db;
     const sheetOpenFor = () => $("#sheet") != null;
     let juntou = false, migrou = false;
+    S.migraOutNov = () => migraOutNov(true);
     // Migração única (pedido do Ramon, 06/11/2026): pagamentos de mensalidade de outubro/2026 passam a ser referentes a novembro/2026.
     // A data do pagamento é mantida. Outubro fica em aberto para essas pessoas (mensalista desde outubro).
-    async function migraOutNov() {
-      if (migrou || !S.isAdmin) return; migrou = true;
+    async function migraOutNov(manual) {
+      if (!S.isAdmin || (migrou && !manual)) return; migrou = true;
       try {
         const flag = await db.doc("config/migracoes").get({ source: "server" });
-        const fl = flag.exists ? flag.data() : {};
+        const fl = manual ? {} : flag.exists ? flag.data() : {};
         if (fl.out2nov && fl.av_out2nov) return;
         const [pg, pl, avq] = await Promise.all(["payments", "players", "avulsos"].map(c => db.collection(c).get({ source: "server" })));
         const pays = pg.docs.map(d => Object.assign({}, d.data(), { id: d.id }));
@@ -1442,12 +1446,13 @@ img { max-width: 100%; }
         });
         batch.set(db.doc("config/migracoes"), Object.assign({ av_out2nov: true, avMovidos: avMov }, fl.out2nov ? {} : { out2nov: true, at: new Date().toISOString(), movidos, conflitos }), { merge: true });
         await batch.commit();
+        if (manual && !movidos.length && !conflitos.length && !avMov) { toast("Não há pagamentos nem avulsos em outubro para passar."); return; }
         if (movidos.length || conflitos.length || avMov) setTimeout(() => openSheet(`${sheetHead("Pagamentos de outubro")}
           <p style="margin:0;font-size:15px">Os pagamentos que estavam em outubro agora são <b>referentes a novembro</b>. A data em que pagaram continua a mesma. Outubro ficou em aberto para você marcar depois.</p>
           ${movidos.length ? `<div class="card" style="font-size:15px"><span class="pill ok">${movidos.length} passaram para novembro</span><div style="margin-top:8px">${movidos.map(esc).join(", ")}</div></div>` : ""}
           ${avMov ? `<div class="card" style="font-size:15px"><span class="pill ok">${avMov} ${avMov === 1 ? "avulso passou" : "avulsos passaram"} para novembro</span></div>` : ""}
           ${conflitos.length ? `<div class="card" style="font-size:15px"><span class="pill warn">${conflitos.length} não mudaram</span><div style="margin-top:8px">${conflitos.map(esc).join(", ")}</div><div style="color:var(--muted);margin-top:6px">Já tinham pagamento em novembro, então o de outubro ficou em outubro.</div></div>` : ""}
-          <button class="btn primary block" data-close>Entendi</button>`), 600);
+          <button class="btn primary block" data-close>Entendi</button>`), manual ? 0 : 600);
       } catch (e) { migrou = false; toast("Não consegui passar os pagamentos de outubro para novembro (" + (e.code || e.message || "erro") + ")."); }
     }
     // Junta jogadores com o mesmo nome completo: fica o cadastro com mais dados e os pagamentos/avulsos/eventos passam para ele.
