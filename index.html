@@ -101,10 +101,10 @@ nav.tabs button { background: none; border: 0; padding: 8px 4px 10px; display: f
 nav.tabs button svg { width: 28px; height: 28px; padding: 3px 14px; box-sizing: content-box; border-radius: 99px; }
 nav.tabs button[aria-selected="true"] { color: var(--accent); }
 nav.tabs button[aria-selected="true"] svg { background: rgba(255,255,255,.16); }
-.meter-label .m-in { color: #0b4fc4; font-weight: 800; font-size: 15px; }
-.meter-label .m-out { color: #c4120a; font-weight: 800; font-size: 15px; }
-:root[data-theme="dark"] .meter-label .m-in { color: #7fb0ff; } :root[data-theme="dark"] .meter-label .m-out { color: #ff7a70; }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .meter-label .m-in { color: #7fb0ff; } :root:not([data-theme="light"]) .meter-label .m-out { color: #ff7a70; } }
+.m-in.m-in { color: #0b4fc4; font-weight: 800; font-size: 15px; }
+.m-out.m-out { color: #c4120a; font-weight: 800; font-size: 15px; }
+:root[data-theme="dark"] .m-in.m-in { color: #7fb0ff; } :root[data-theme="dark"] .m-out.m-out { color: #ff7a70; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .m-in.m-in { color: #7fb0ff; } :root:not([data-theme="light"]) .m-out.m-out { color: #ff7a70; } }
 .swatches { display: flex; flex-wrap: wrap; gap: 10px; }
 .swatch { width: 46px; height: 46px; border-radius: 50%; border: 3px solid transparent; box-shadow: 0 0 0 1px var(--line); cursor: pointer; display: grid; place-items: center; color: #fff; }
 .swatch svg { width: 22px; height: 22px; visibility: hidden; }
@@ -299,7 +299,7 @@ img { max-width: 100%; }
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="config.js?v=202611061804"></script>
+<script src="config.js?v=202611061816"></script>
 <script>
 (function () {
   "use strict";
@@ -339,7 +339,7 @@ img { max-width: 100%; }
   }
   applyTheme(store.get("tema", "verde"));
   // Atualização automática: ao abrir ou voltar ao app, confere se há versão nova no site e recarrega.
-  const VERSAO = "202611061804";
+  const VERSAO = "202611061816";
   async function checaVersao() {
     try {
       const r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
@@ -365,7 +365,7 @@ img { max-width: 100%; }
   const S = {
     tab: store.get("tab", "caixa"),
     month: monthKey(new Date()),
-    players: [], payments: [], events: [], avulsos: [], colab: [],
+    players: [], payments: [], events: [], avulsos: [], colab: [], jogos: [],
     settings: null, sorteio: null,
     loaded: { players: false, payments: false, events: false, settings: false },
     canWrite: true, db: null, offline: false,
@@ -373,7 +373,7 @@ img { max-width: 100%; }
     perTeam: store.get("perTeam", 6), useSkill: store.get("useSkill", true), usePos: store.get("usePos", true),
     filter: "todos", q: ""
   };
-  const cfg = () => Object.assign({ quadra: 0, mensalidade: 0, avulso: 15, vencimento: 10, pix: "", pixTipo: "Celular", banco: "", titular: "", grupo: "Futebol de Sexta" }, S.settings || {});
+  const cfg = () => Object.assign({ quadra: 0, mensalidade: 0, avulso: 15, vencimento: 10, pix: "", pixTipo: "Celular", banco: "", titular: "", grupo: "Futebol de Sexta", coletes: "Amarelo, Verde, Vermelho, Preto, Lilás" }, S.settings || {});
   const PIXT = { "CPF": ["000.000.000-00", "numeric"], "E-mail": ["nome@email.com", "email"], "Celular": ["(00) 00000-0000", "tel"], "Aleatória": ["chave aleatória", "text"] };
   const pixText = c => c.pix ? `\n💠 *Pix (${c.pixTipo})*: ${c.pix}\n` + (c.titular ? `Nome: ${c.titular}\n` : "") + (c.banco ? `Banco: ${c.banco}\n` : "") : "";
   // presença vale só para o dia do jogo; no dia seguinte começa de novo
@@ -383,6 +383,7 @@ img { max-width: 100%; }
     const day = { date: todayISO(), ids: [...S.present], removed: [...S.removed] };
     store.set("day", day);
     if (S.db && S.canWrite) S.db.doc("presenca/dia").set(Object.assign({ at: new Date().toISOString() }, day)).catch(() => {});
+    if (S.db && S.canWrite && S.jogos.some(j => j.id === day.date)) S.db.doc("jogos/" + day.date).set({ date: day.date, ids: day.ids }).catch(() => {});
   };
   // fila de prioridade: 0 pagou a mensalidade (por ordem de pagamento), 1 mensalista sem pagar, 2 avulso, 3 criança
   function prio(p) {
@@ -408,6 +409,15 @@ img { max-width: 100%; }
     const iso = lp ? dueISO(addMonth(lp, 1), cfg().vencimento) : dueISO(S.month, cfg().vencimento);
     return { iso, lp, late: todayISO() > iso };
   }
+  // situação do jogador para o jogo de hoje: mensalista olha a mensalidade do mês; avulso olha o avulso de hoje
+  function pagHoje(p) {
+    if (p.mensalista !== false) return payOf(p.id, monthKey(new Date())) ? "ok" : "bad";
+    const a = S.avulsos.find(x => x.playerId === p.id && x.date === todayISO());
+    return a && a.paid ? "ok" : "bad";
+  }
+  const COR_COLETE = { amarelo: ["#f2c230", "#1d1600"], verde: ["#1f9d55", "#fff"], vermelho: ["#c62828", "#fff"], preto: ["#111", "#fff"], lilas: ["#9b6bd3", "#fff"], azul: ["#1557b0", "#fff"], branco: ["#f4f4f4", "#111"], laranja: ["#e8710a", "#fff"], rosa: ["#e0569b", "#fff"], cinza: ["#777", "#fff"] };
+  const coletes = () => String(cfg().coletes || "").split(/[,;\n]+/).map(x => x.trim()).filter(Boolean);
+  const corTime = (t, i) => t.cor || coletes()[i] || "";
   const refAv = a => a.ref || (a.date || "").slice(0, 7);
   const avulsosDoMes = month => S.avulsos.filter(a => refAv(a) === month).sort((a, b) => (b.date || "").localeCompare(a.date || "") || (a.name || "").localeCompare(b.name || "", "pt-BR"));
 
@@ -734,7 +744,9 @@ img { max-width: 100%; }
   function sheetSettings() {
     const c = cfg(); const n = mensalistas().length;
     openSheet(`${sheetHead("Configurações")}
+      <button class="btn primary block" id="stRel">📊 Relatório de frequência e pagamentos</button>
       <div class="field"><label for="stGrupo">Nome do grupo</label><input id="stGrupo" class="input" value="${esc(c.grupo)}"></div>
+      <div class="field"><label for="stColetes">Cores dos coletes (na ordem dos times)</label><input id="stColetes" class="input" value="${esc(c.coletes)}" placeholder="Amarelo, Verde, Vermelho, Preto, Lilás"></div>
       <div class="grid2">
         <div class="field"><label for="stQuadra">Quadra por mês</label><input id="stQuadra" class="input num" inputmode="decimal" placeholder="0,00" value="${c.quadra ? String(c.quadra).replace(".", ",") : ""}"></div>
         <div class="field"><label for="stMens">Mensalidade</label><input id="stMens" class="input num" inputmode="decimal" placeholder="0,00" value="${c.mensalidade ? String(c.mensalidade).replace(".", ",") : ""}"></div>
@@ -772,6 +784,7 @@ img { max-width: 100%; }
       const num = s => parseFloat(String(s || "0").replace(/\./g, "").replace(",", ".")) || 0;
       $("#stDiv", el).onclick = () => { const q = num($("#stQuadra", el).value); if (!q || !n) { toast("Informe o valor da quadra."); return; } $("#stMens", el).value = (Math.ceil(q / n * 100) / 100).toFixed(2).replace(".", ","); };
       $("#stLogout", el).onclick = () => { closeSheet(); firebase.auth().signOut(); };
+      $("#stRel", el).onclick = () => sheetRelatorio();
       const mg = $("#stMigra", el); if (mg) mg.onclick = async () => { mg.disabled = true; mg.textContent = "Passando…"; closeSheet(); await S.migraOutNov(); };
       const ex = $("#stExport", el); if (ex) ex.onclick = exportBackup;
       const im = $("#stImport", el); if (im) im.onchange = () => importBackup(im.files[0], $("#stImpMsg", el));
@@ -781,10 +794,39 @@ img { max-width: 100%; }
       $("#stPixTipo", el).onclick = e => { const b = e.target.closest("[data-t]"); if (!b) return; pixTipo = b.dataset.t; el.querySelectorAll("#stPixTipo [data-t]").forEach(x => x.setAttribute("aria-pressed", String(x === b))); const i = $("#stPix", el); i.placeholder = PIXT[pixTipo][0]; i.inputMode = PIXT[pixTipo][1]; i.focus(); };
       const sv = $("#stSave", el);
       if (sv) sv.onclick = async () => {
-        const body = { grupo: $("#stGrupo", el).value.trim() || "Futebol de Sexta", quadra: num($("#stQuadra", el).value), mensalidade: num($("#stMens", el).value), avulso: num($("#stAv", el).value) || 15, vencimento: Math.min(31, Math.max(1, parseInt($("#stVenc", el).value, 10) || 10)), pix: $("#stPix", el).value.trim(), pixTipo, diaJogo: Number($("#stJogo", el).value), banco: $("#stBanco", el).value.trim(), titular: $("#stTitular", el).value.trim(), tema };
+        const body = { grupo: $("#stGrupo", el).value.trim() || "Futebol de Sexta", quadra: num($("#stQuadra", el).value), mensalidade: num($("#stMens", el).value), avulso: num($("#stAv", el).value) || 15, vencimento: Math.min(31, Math.max(1, parseInt($("#stVenc", el).value, 10) || 10)), pix: $("#stPix", el).value.trim(), pixTipo, diaJogo: Number($("#stJogo", el).value), coletes: $("#stColetes", el).value.trim(), banco: $("#stBanco", el).value.trim(), titular: $("#stTitular", el).value.trim(), tema };
         if (await write(db => db.doc("config/main").set(body), "Configurações salvas")) closeSheet();
       };
     });
+  }
+
+  function sheetRelatorio() {
+    const hoje = monthKey(new Date()), jogos = S.jogos.slice().sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+    const ativos = S.players.filter(p => p.active !== false).sort(sortName);
+    const inicio = p => (p.createdAt || "").slice(0, 10) || (p.desde ? p.desde + "-01" : "");
+    const freq = ativos.map(p => {
+      const js = jogos.filter(j => !inicio(p) || j.date >= inicio(p));
+      const veio = js.filter(j => (j.ids || []).includes(p.id)).length;
+      return { p, veio, faltou: js.length - veio };
+    });
+    const mens = mensalistas().map(p => {
+      const meses = []; for (let k = desde(p); k <= hoje && meses.length < 60; k = addMonth(k, 1)) meses.push(k);
+      const pagos = meses.filter(k => payOf(p.id, k)), dev = meses.filter(k => !payOf(p.id, k) && (k < hoje || todayISO() > dueISO(k, cfg().vencimento)));
+      const emDia = pagos.filter(k => (payOf(p.id, k).paidAt || "") <= dueISO(k, cfg().vencimento)).length;
+      return { p, meses, pagos, dev, emDia };
+    });
+    const linha = (nome, dir, cls = "") => `<div style="display:flex;gap:8px;padding:7px 0;border-bottom:1px solid var(--line);font-size:15px"><span style="flex:1;min-width:0">${nome}</span><span class="num ${cls}" style="font-weight:700">${dir}</span></div>`;
+    const bloco = (titulo, itens) => `<div class="card" style="padding:12px 14px"><span class="lbl">${titulo}</span>${itens || '<div style="color:var(--muted);padding:8px 0">Ninguém ainda.</div>'}</div>`;
+    const veioMais = freq.filter(x => x.veio).sort((a, b) => b.veio - a.veio || sortName(a.p, b.p));
+    const faltouMais = freq.filter(x => x.faltou).sort((a, b) => b.faltou - a.faltou || sortName(a.p, b.p));
+    const devendo = mens.filter(x => x.dev.length).sort((a, b) => b.dev.length - a.dev.length || sortName(a.p, b.p));
+    const emDia = mens.filter(x => !x.dev.length && x.pagos.length).sort((a, b) => b.emDia - a.emDia || b.pagos.length - a.pagos.length || sortName(a.p, b.p));
+    openSheet(`${sheetHead("Relatório")}
+      <p style="margin:0;font-size:14px;color:var(--muted)">Frequência conta os dias em que houve sorteio de times (desde 06/11/2026): <b>${jogos.length} ${jogos.length === 1 ? "jogo" : "jogos"}</b> até agora.</p>
+      ${bloco("Quem veio mais vezes", veioMais.map(x => linha(esc(x.p.name), `${x.veio} ${x.veio === 1 ? "jogo" : "jogos"}`, "m-in")).join(""))}
+      ${bloco("Quem faltou mais", faltouMais.map(x => linha(esc(x.p.name), `${x.faltou} ${x.faltou === 1 ? "falta" : "faltas"}`, "m-out")).join(""))}
+      ${bloco("Mensalistas devendo", devendo.map(x => linha(esc(x.p.name) + `<div style="font-size:12px;color:var(--muted)">${x.dev.map(monthShort).join(", ")}</div>`, `${x.dev.length} ${x.dev.length === 1 ? "mês" : "meses"} · ${brl(x.dev.length * (cfg().mensalidade || 0))}`, "m-out")).join(""))}
+      ${bloco("Pagaram todos os meses", emDia.map(x => linha(esc(x.p.name), `${x.pagos.length}/${x.meses.length} pagos${x.emDia === x.pagos.length ? " · sempre em dia" : ""}`, "m-in")).join(""))}`, () => {});
   }
 
   function sheetCobranca() {
@@ -1207,7 +1249,7 @@ img { max-width: 100%; }
   }
 
   // ---------- backup ----------
-  const COLS = ["players", "payments", "events", "avulsos", "config", "sorteio", "presenca"];
+  const COLS = ["players", "payments", "events", "avulsos", "config", "sorteio", "presenca", "jogos"];
   async function exportBackup() {
     const out = {};
     for (const c of COLS) { const snap = await S.db.collection(c).get(); out[c] = {}; snap.docs.forEach(d => { out[c][d.id] = d.data(); }); }
@@ -1238,6 +1280,7 @@ img { max-width: 100%; }
       let sc = 0;
       for (const n in PESO) sc += PESO[n] * range(ts.map(ps => ps.filter(p => nivel(p) === n).length));
       sc += 10 * range(ts.map(ps => ps.reduce((a, p) => a + nota(p), 0)));
+      sc += 5000 * range(ts.map(ps => ps.filter(p => p.pos === "G").length));
       if (usePos) ["Z", "M", "A"].forEach(k => { sc += range(ts.map(ps => ps.filter(p => (p.pos === k || (k === "Z" && /LE|LD|V/.test(p.pos || "")))).length)); });
       return sc;
     };
@@ -1282,16 +1325,19 @@ img { max-width: 100%; }
   function teamsText(sorteio) {
     return `⚽ *${cfg().grupo}* — Times ${sorteio.label || ""}\n` + sorteio.teams.map((t, i) => {
       const ps = t.ids.map(playerById).filter(Boolean);
-      return `\n*Time ${i + 1}*${t.full ? "" : " (próximo)"}\n` + ps.map(p => `• ${p.name}${p.pos === "G" ? " (G)" : ""}`).join("\n");
+      const cor = corTime(t, i);
+      return `\n*${cor ? "Time " + cor : "Time " + (i + 1)}*${t.full ? "" : " (próximo)"}\n` + ps.map(p => `• ${p.name}${p.pos === "G" ? " (G)" : ""}`).join("\n");
     }).join("\n");
   }
   function sheetTeams(sorteio) {
     const html = sorteio.teams.map((t, i) => {
       const ps = t.ids.map(playerById).filter(Boolean);
       ps.sort((a, b) => (b.pos === "G") - (a.pos === "G") || a.name.localeCompare(b.name, "pt-BR"));
-      const sum = ps.reduce((a, p) => a + Number(p.skill ?? 5), 0);
-      return `<article class="team ${t.full ? "" : "reserve"}"><header><h4>Time ${i + 1}</h4><span class="num">${ps.length} jogadores</span></header>
-        <ul>${ps.map(p => `<li><span class="pos ${p.pos === "G" ? "g" : ""}">${esc(p.pos || "A")}</span><span class="n">${esc(p.name)}</span></li>`).join("")}</ul></article>`;
+      const cor = corTime(t, i), cc = COR_COLETE[norm(cor)];
+      let nG = 0;
+      return `<article class="team ${t.full ? "" : "reserve"}"><header ${cc ? `style="background:${cc[0]};color:${cc[1]}"` : ""}><h4>${cor ? "Time " + esc(cor) : "Time " + (i + 1)}</h4><span class="num">${t.full ? "" : "próximo · "}${ps.length} jogadores</span></header>
+        <ul>${ps.map(p => { const linha = p.pos === "G" && ++nG > 1; const pg = pagHoje(p);
+          return `<li><span class="pos ${p.pos === "G" && !linha ? "g" : ""}">${linha ? "L" : esc(p.pos || "A")}</span><span class="n">${esc(p.name)}${linha ? ' <small style="color:var(--muted)">(goleiro na linha)</small>' : ""}</span><span class="pill ${pg}">${pg === "ok" ? "Pago" : "Devendo"}</span></li>`; }).join("")}</ul></article>`;
     }).join("");
     openSheet(`${sheetHead("Times")}
       <div class="teams">${html}</div>
@@ -1335,6 +1381,8 @@ img { max-width: 100%; }
     const main = full >= 2 ? ps.slice(0, full * S.perTeam) : ps, rest = full >= 2 ? ps.slice(full * S.perTeam) : [];
     const teams = drawTeams(main, S.perTeam, S.useSkill, S.usePos);
     if (rest.length) teams.push({ ids: rest.map(p => p.id), full: false });
+    const cores = coletes(); teams.forEach((t, i) => { if (cores[i]) t.cor = cores[i]; });
+    if (S.db && S.canWrite) S.db.doc("jogos/" + todayISO()).set({ date: todayISO(), ids: [...S.present] }).catch(() => {});
     const sorteio = { teams, label: `${pad(d.getDate())}/${pad(d.getMonth() + 1)} ${pad(d.getHours())}:${pad(d.getMinutes())}`, at: d.toISOString() };
     S.sorteio = sorteio;
     sheetTeams(sorteio);
@@ -1513,6 +1561,7 @@ img { max-width: 100%; }
       if (d && d.date === todayISO()) { S.present = new Set(d.ids || []); S.removed = new Set(d.removed || []); store.set("day", { date: d.date, ids: d.ids || [], removed: d.removed || [] }); if (!$("#sheet") && S.tab === "times") render(); }
     }, () => {}));
     sub(db.collection("avulsos"), s => { S.avulsos = s.docs.map(d => Object.assign({}, d.data(), { id: d.id })); }, "avulsos");
+    sub(db.collection("jogos"), s => { S.jogos = s.docs.map(d => Object.assign({}, d.data(), { id: d.id })); }, "jogos");
     sub(db.collection("events"), s => { S.events = s.docs.map(d => Object.assign({}, d.data(), { id: d.id })); }, "events");
     sub(db.doc("config/main"), s => { S.settings = s.exists ? s.data() : null; if (S.settings && S.settings.tema) applyTheme(S.settings.tema); }, "settings");
     unsubs.push(db.doc("sorteio/atual").onSnapshot(s => { S.sorteio = s.exists ? s.data() : null; if (!sheetOpenFor() && S.tab === "times") render(); }, () => {}));
