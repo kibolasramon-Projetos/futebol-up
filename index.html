@@ -299,7 +299,7 @@ img { max-width: 100%; }
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="config.js?v=202611061753"></script>
+<script src="config.js?v=202611061758"></script>
 <script>
 (function () {
   "use strict";
@@ -339,7 +339,7 @@ img { max-width: 100%; }
   }
   applyTheme(store.get("tema", "verde"));
   // Atualização automática: ao abrir ou voltar ao app, confere se há versão nova no site e recarrega.
-  const VERSAO = "202611061753";
+  const VERSAO = "202611061758";
   async function checaVersao() {
     try {
       const r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
@@ -607,12 +607,23 @@ img { max-width: 100%; }
     const hist = S.payments.filter(x => x.playerId === pid).sort((a, b) => b.month.localeCompare(a.month)).slice(0, 8);
     const histHtml = hist.length ? `<div class="field"><span class="lbl">Histórico</span><div class="card" style="padding:4px 14px">${hist.map(h => `<div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)" class="num"><b style="flex:1">ref. ${monthLabel(h.month)}</b><span>${brl(h.amount)}</span><span style="color:var(--muted)">${fmtDateShort(h.paidAt)} · ${esc(h.method || "")}</span></div>`).join("")}</div></div>` : "";
     if (pay) {
+      const refOpts = []; for (let k = addMonth(m, -3); k <= addMonth(m, 3); k = addMonth(k, 1)) if (k === m || !payOf(pid, k)) refOpts.push(k);
       openSheet(`${sheetHead(p.name)}
         <div class="card"><div class="pill ok" style="display:inline-block">Pago</div>
           <p class="num" style="margin:10px 0 0;font-size:16px">Referente a <b>${monthLabel(m)}</b><br>${brl(pay.amount)} via ${esc(pay.method)} em ${fmtDate(pay.paidAt)}</p>
           <p class="num" style="margin:10px 0 0;font-size:16px">${nextDue(pid).late ? "Venceu em" : "Próximo pagamento:"} <b>${fmtDate(nextDue(pid).iso)}</b></p></div>
+        ${S.canWrite ? `<div class="card" style="display:flex;flex-direction:column;gap:10px"><label class="lbl" for="refNovo">Mudar referência</label>
+          <div style="display:flex;gap:8px"><select id="refNovo" class="input" style="flex:1">${refOpts.map(k => `<option value="${k}" ${k === m ? "selected" : ""}>${monthLabel(k)}</option>`).join("")}</select><button class="btn primary" id="refSave">Mudar</button></div></div>` : ""}
         ${histHtml}
         ${S.canWrite ? `<div id="undoBox"><button class="btn danger block" data-undo>Desfazer pagamento</button></div>` : ""}`, el => {
+        const rs = $("#refSave", el);
+        if (rs) rs.onclick = async () => {
+          const k = $("#refNovo", el).value; if (k === m) { closeSheet(); return; }
+          rs.disabled = true;
+          const { id, ...dados } = pay;
+          const ok = await write(async db => { const bt = db.batch(); bt.set(db.doc(`payments/${k}_${pid}`), Object.assign(dados, { month: k, movidoDe: m })); bt.delete(db.doc("payments/" + id)); await bt.commit(); }, `Pagamento agora é referente a ${monthLabel(k)}`);
+          if (ok) closeSheet(); else rs.disabled = false;
+        };
         const b = $("[data-undo]", el); if (!b) return;
         b.onclick = () => {
           $("#undoBox", el).innerHTML = `<div class="confirm">Apagar o pagamento de ${esc(p.name)} em ${monthLabel(m)}?<div class="btnrow"><button class="btn ghost" data-close>Cancelar</button><button class="btn danger" id="undoYes" style="background:var(--bad);color:#fff">Apagar</button></div></div>`;
@@ -1423,7 +1434,7 @@ img { max-width: 100%; }
           ${movidos.length ? `<div class="card" style="font-size:15px"><span class="pill ok">${movidos.length} passaram para novembro</span><div style="margin-top:8px">${movidos.map(esc).join(", ")}</div></div>` : ""}
           ${conflitos.length ? `<div class="card" style="font-size:15px"><span class="pill warn">${conflitos.length} não mudaram</span><div style="margin-top:8px">${conflitos.map(esc).join(", ")}</div><div style="color:var(--muted);margin-top:6px">Já tinham pagamento em novembro, então o de outubro ficou em outubro.</div></div>` : ""}
           <button class="btn primary block" data-close>Entendi</button>`), 600);
-      } catch (e) { migrou = false; }
+      } catch (e) { migrou = false; toast("Não consegui passar os pagamentos de outubro para novembro (" + (e.code || e.message || "erro") + ")."); }
     }
     // Junta jogadores com o mesmo nome completo: fica o cadastro com mais dados e os pagamentos/avulsos/eventos passam para ele.
     async function juntaDuplicados() {
