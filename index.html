@@ -299,7 +299,7 @@ img { max-width: 100%; }
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="config.js?v=202611061443"></script>
+<script src="config.js?v=202611061752"></script>
 <script>
 (function () {
   "use strict";
@@ -339,7 +339,7 @@ img { max-width: 100%; }
   }
   applyTheme(store.get("tema", "verde"));
   // Atualização automática: ao abrir ou voltar ao app, confere se há versão nova no site e recarrega.
-  const VERSAO = "202611061443";
+  const VERSAO = "202611061752";
   async function checaVersao() {
     try {
       const r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
@@ -397,7 +397,9 @@ img { max-width: 100%; }
   // Nível do jogador: Bom / Médio / Ruim (guardado como nota 9 / 6 / 3 para o equilíbrio dos times)
   const NIVEIS = [["bom", "Bom", 9, "ok"], ["medio", "Médio", 6, "warn"], ["ruim", "Ruim", 3, "bad"]];
   const nivel = p => { if (p.crianca) return "ruim"; const n = Number(p.skill ?? 5); return n >= 7 ? "bom" : n >= 4 ? "medio" : "ruim"; };
-  const mensalistas = () => S.players.filter(p => p.active !== false && p.mensalista !== false).sort(sortName);
+  // Mês em que o mensalista começou a pagar: só cobra dele a partir desse mês (cada mês é fechado)
+  const desde = p => p.desde || (p.createdAt || "").slice(0, 7) || S.payments.filter(x => x.playerId === p.id).map(x => x.month).sort()[0] || "2026-11";
+  const mensalistas = month => S.players.filter(p => p.active !== false && p.mensalista !== false && (!month || desde(p) <= month)).sort(sortName);
   const payOf = (pid, month) => S.payments.find(p => p.playerId === pid && p.month === month);
   const lastPaidMonth = pid => S.payments.filter(p => p.playerId === pid).map(p => p.month).sort().pop();
   // próximo pagamento: vencimento do mês seguinte ao último pago; sem pagamento, o vencimento do mês exibido
@@ -464,7 +466,7 @@ img { max-width: 100%; }
   }
 
   function viewCaixa() {
-    const c = cfg(); const list = mensalistas(); const m = S.month;
+    const c = cfg(); const m = S.month; const list = mensalistas(m);
     const st = list.map(p => ({ p, s: statusFor(p, m) }));
     const pagos = st.filter(x => x.s.k === "ok");
     const avs = avulsosDoMes(m);
@@ -502,8 +504,7 @@ img { max-width: 100%; }
       </div>
       <div class="list">
         ${shown.length ? shown.map(({ p, s }) => {
-          const nd = nextDue(p.id);
-          const sub = `<span class="due ${nd.late ? "late" : ""}">${nd.late ? "Venceu em" : "Próximo pagamento:"} ${fmtDate(nd.iso)}</span>${nd.lp ? ` · pago até ${monthShort(nd.lp)}` : " · nunca pagou"}`;
+          const sub = s.pay ? `Pagou ${fmtDate(s.pay.paidAt)} · referente a ${monthShort(m)}` : `Referente a ${monthShort(m)}`;
           return `<button class="row" data-pay="${esc(p.id)}">
             <span class="pos ${p.pos === "G" ? "g" : ""}">${esc(p.pos || "A")}</span>
             <span class="main"><div class="name">${esc(p.name)}</div><div class="sub num">${sub}</div></span>
@@ -604,11 +605,11 @@ img { max-width: 100%; }
     const p = playerById(pid); if (!p) return;
     const c = cfg(); const m = S.month; const pay = payOf(pid, m);
     const hist = S.payments.filter(x => x.playerId === pid).sort((a, b) => b.month.localeCompare(a.month)).slice(0, 8);
-    const histHtml = hist.length ? `<div class="field"><span class="lbl">Histórico</span><div class="card" style="padding:4px 14px">${hist.map(h => `<div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)" class="num"><b style="flex:1">${monthLabel(h.month)}</b><span>${brl(h.amount)}</span><span style="color:var(--muted)">${fmtDateShort(h.paidAt)} · ${esc(h.method || "")}</span></div>`).join("")}</div></div>` : "";
+    const histHtml = hist.length ? `<div class="field"><span class="lbl">Histórico</span><div class="card" style="padding:4px 14px">${hist.map(h => `<div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)" class="num"><b style="flex:1">ref. ${monthLabel(h.month)}</b><span>${brl(h.amount)}</span><span style="color:var(--muted)">${fmtDateShort(h.paidAt)} · ${esc(h.method || "")}</span></div>`).join("")}</div></div>` : "";
     if (pay) {
       openSheet(`${sheetHead(p.name)}
         <div class="card"><div class="pill ok" style="display:inline-block">Pago</div>
-          <p class="num" style="margin:10px 0 0;font-size:16px"><b>${monthLabel(m)}</b><br>${brl(pay.amount)} via ${esc(pay.method)} em ${fmtDate(pay.paidAt)}</p>
+          <p class="num" style="margin:10px 0 0;font-size:16px">Referente a <b>${monthLabel(m)}</b><br>${brl(pay.amount)} via ${esc(pay.method)} em ${fmtDate(pay.paidAt)}</p>
           <p class="num" style="margin:10px 0 0;font-size:16px">${nextDue(pid).late ? "Venceu em" : "Próximo pagamento:"} <b>${fmtDate(nextDue(pid).iso)}</b></p></div>
         ${histHtml}
         ${S.canWrite ? `<div id="undoBox"><button class="btn danger block" data-undo>Desfazer pagamento</button></div>` : ""}`, el => {
@@ -621,21 +622,28 @@ img { max-width: 100%; }
       return;
     }
     let months = 1, method = store.get("method", "Pix");
+    const abertos = []; for (let k = desde(p); k <= addMonth(monthKey(new Date()), 2) && abertos.length < 36; k = addMonth(k, 1)) if (!payOf(pid, k)) abertos.push(k);
+    if (!abertos.includes(m)) abertos.push(m);
+    abertos.sort();
     openSheet(`${sheetHead(p.name)}
       <div class="pill ${statusFor(p, m).k}" style="align-self:flex-start">${statusFor(p, m).label} · ${monthLabel(m)}</div>
-      <div class="num" style="font-size:15px">${nextDue(pid).lp ? `Pago até <b>${monthLabel(nextDue(pid).lp)}</b>. ` : ""}${nextDue(pid).late ? "Venceu em" : "Próximo pagamento:"} <b>${fmtDate(nextDue(pid).iso)}</b></div>
+      ${abertos.filter(k => k !== m && k < m).length ? `<div class="num" style="font-size:15px">Também está devendo: <b>${abertos.filter(k => k < m).map(monthShort).join(", ")}</b></div>` : ""}
       ${S.canWrite ? `
       <div class="grid2">
         <div class="field"><label for="payVal">Valor por mês</label><input id="payVal" class="input num" inputmode="decimal" value="${String(c.mensalidade || "").replace(".", ",")}" placeholder="0,00"></div>
         <div class="field"><label for="payDate">Data do pagamento</label><input id="payDate" class="input" type="date" value="${todayISO()}"></div>
       </div>
+      <div class="field"><label for="payRef">Referente ao mês</label><select id="payRef" class="input">${abertos.map(k => `<option value="${k}" ${k === m ? "selected" : ""}>${monthLabel(k)}${k < monthKey(new Date()) ? " (atrasado)" : ""}</option>`).join("")}</select></div>
       <div class="field"><span class="lbl">Forma de pagamento</span><div class="chips" id="methods">${FORMAS.map(f => `<button class="chip" data-m="${f}" aria-pressed="${f === method}">${f}</button>`).join("")}</div></div>
       <div class="field"><span class="lbl">Quantos meses está pagando</span>
         <div class="stepper"><button class="round" id="mMinus" aria-label="Menos">−</button><b id="mN">1</b><button class="round" id="mPlus" aria-label="Mais">+</button><span id="mRange" style="color:var(--muted);font-size:14px"></span></div></div>
       <button class="btn primary block" id="paySave">${ICON.check}Registrar pagamento</button>` : ""}
       ${histHtml}`, el => {
       if (!S.canWrite) return;
+      let ref = m;
+      $("#payRef", el).onchange = e => { ref = e.target.value; upd(); };
       const upd = () => {
+        const m = ref;
         $("#mN", el).textContent = months;
         const ms = []; for (let i = 0; i < months; i++) ms.push(addMonth(m, i));
         const skip = ms.filter(k => payOf(pid, k)).length;
@@ -651,10 +659,10 @@ img { max-width: 100%; }
         const btn = $("#paySave", el); btn.disabled = true;
         const ok = await write(async db => {
           for (let i = 0; i < months; i++) {
-            const k = addMonth(m, i); if (payOf(pid, k)) continue;
+            const k = addMonth(ref, i); if (payOf(pid, k)) continue;
             await db.doc(`payments/${k}_${pid}`).set({ playerId: pid, month: k, amount, paidAt, method, createdAt: new Date().toISOString() });
           }
-        }, months > 1 ? `${months} meses registrados` : "Pagamento registrado");
+        }, months > 1 ? `${months} meses registrados a partir de ${monthShort(ref)}` : `Pagamento referente a ${monthLabel(ref)}`);
         if (ok) closeSheet(); else btn.disabled = false;
       };
     });
@@ -670,6 +678,7 @@ img { max-width: 100%; }
       <div class="field"><label for="plPhone">Telefone / WhatsApp</label><input id="plPhone" class="input num" type="tel" inputmode="tel" placeholder="(00) 00000-0000" value="${esc(d.phone)}" autocomplete="off"></div>
       <div class="field"><span class="lbl">Categoria</span>${seg("plCat", [["adulto", "Adulto"], ["crianca", "Criança"]], d.crianca ? "crianca" : "adulto")}</div>
       <div class="field"><span class="lbl">Como paga</span>${seg("plTipo", [["mensal", "Mensalista"], ["avulso", "Avulso (por jogo)"]], d.mensalista === false ? "avulso" : "mensal")}</div>
+      <div class="field" id="plDesdeBox" ${d.mensalista === false ? "hidden" : ""}><label for="plDesde">Mensalista desde (começa a pagar neste mês)</label><input id="plDesde" class="input" type="month" value="${p && (p.desde || p.mensalista !== false) ? desde(p) : monthKey(new Date())}"></div>
       <div class="field"><label for="plBy">Veio por quem? (quem trouxe)</label><input id="plBy" class="input" list="plByList" placeholder="Nome de quem convidou" value="${esc(d.trazidoPor)}" autocomplete="off">
         <datalist id="plByList">${others.map(x => `<option value="${esc(x.name)}"></option>`).join("")}</datalist></div>
       <div class="field"><span class="lbl">É evangélico?</span>${seg("plEv", [["sim", "Sim"], ["nao", "Não"], ["", "Não perguntei"]], d.evangelico || "")}</div>
@@ -687,7 +696,7 @@ img { max-width: 100%; }
       $("#plPos", el).onclick = e => { const b = e.target.closest("[data-p]"); if (!b) return; d.pos = b.dataset.p; el.querySelectorAll("[data-p]").forEach(x => x.setAttribute("aria-pressed", String(x === b))); };
       let tipo = d.mensalista === false ? "avulso" : "mensal", ev = d.evangelico || "", cat = d.crianca ? "crianca" : "adulto";
       $("#plCat", el).onclick = e => { const b = e.target.closest("[data-v]"); if (!b) return; cat = b.dataset.v; el.querySelectorAll("#plCat [data-v]").forEach(x => x.setAttribute("aria-pressed", String(x === b))); };
-      $("#plTipo", el).onclick = e => { const b = e.target.closest("[data-v]"); if (!b) return; tipo = b.dataset.v; el.querySelectorAll("#plTipo [data-v]").forEach(x => x.setAttribute("aria-pressed", String(x === b))); };
+      $("#plTipo", el).onclick = e => { const b = e.target.closest("[data-v]"); if (!b) return; tipo = b.dataset.v; el.querySelectorAll("#plTipo [data-v]").forEach(x => x.setAttribute("aria-pressed", String(x === b))); $("#plDesdeBox", el).hidden = tipo !== "mensal"; };
       $("#plEv", el).onclick = e => { const b = e.target.closest("[data-v]"); if (!b) return; ev = b.dataset.v; el.querySelectorAll("#plEv [data-v]").forEach(x => x.setAttribute("aria-pressed", String(x === b))); $("#plIgBox", el).hidden = ev !== "sim"; };
       ["#plAct"].forEach(s => { $(s, el).onclick = e => { const t = e.currentTarget; t.setAttribute("aria-checked", String(t.getAttribute("aria-checked") !== "true")); }; });
       const novoId = uid();
@@ -697,7 +706,7 @@ img { max-width: 100%; }
         const dup = S.players.find(o => (!p || o.id !== p.id) && norm(o.name) === norm(nm));
         if (dup) { name.focus(); toast(`${dup.name} já está cadastrado.`); return; }
         const id = p ? p.id : novoId;
-        const body = { name: nm, skill: niv === nivel(d) ? Number(d.skill ?? 5) : NIVEIS.find(n => n[0] === niv)[2], nivel: niv, pos: d.pos, mensalista: tipo === "mensal", crianca: cat === "crianca", phone: $("#plPhone", el).value.trim(), trazidoPor: $("#plBy", el).value.trim(), evangelico: ev, igreja: ev === "sim" ? $("#plIg", el).value.trim() : "", obs: $("#plObs", el).value.trim(), active: $("#plAct", el).getAttribute("aria-checked") === "true" };
+        const body = { name: nm, skill: niv === nivel(d) ? Number(d.skill ?? 5) : NIVEIS.find(n => n[0] === niv)[2], nivel: niv, pos: d.pos, mensalista: tipo === "mensal", crianca: cat === "crianca", phone: $("#plPhone", el).value.trim(), trazidoPor: $("#plBy", el).value.trim(), evangelico: ev, igreja: ev === "sim" ? $("#plIg", el).value.trim() : "", obs: $("#plObs", el).value.trim(), active: $("#plAct", el).getAttribute("aria-checked") === "true", desde: $("#plDesde", el).value || monthKey(new Date()), createdAt: d.createdAt || new Date().toISOString() };
         btn.disabled = true; btn.textContent = "Gravando…";
         if (await write(db => db.doc("players/" + id).set(body), p ? "Jogador atualizado" : "Jogador cadastrado")) closeSheet();
         else { btn.disabled = false; btn.textContent = "Gravar"; }
@@ -764,7 +773,7 @@ img { max-width: 100%; }
   }
 
   function sheetCobranca() {
-    const c = cfg(); const m = S.month; const list = mensalistas();
+    const c = cfg(); const m = S.month; const list = mensalistas(m);
     const pagos = list.filter(p => payOf(p.id, m)); const dev = list.filter(p => !payOf(p.id, m));
     const txt = `⚽ *${c.grupo}* — Mensalidade ${monthLabel(m)}\n` +
       `Valor: ${brl(c.mensalidade)} · vence ${fmtDate(dueISO(m, c.vencimento))}\n` + pixText(c) +
