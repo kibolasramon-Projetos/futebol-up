@@ -299,7 +299,7 @@ img { max-width: 100%; }
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="config.js?v=202611061827"></script>
+<script src="config.js?v=202611061831"></script>
 <script>
 (function () {
   "use strict";
@@ -339,7 +339,7 @@ img { max-width: 100%; }
   }
   applyTheme(store.get("tema", "verde"));
   // Atualização automática: ao abrir ou voltar ao app, confere se há versão nova no site e recarrega.
-  const VERSAO = "202611061827";
+  const VERSAO = "202611061831";
   async function checaVersao() {
     try {
       const r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
@@ -418,6 +418,8 @@ img { max-width: 100%; }
   const COR_COLETE = { amarelo: ["#f2c230", "#1d1600"], verde: ["#1f9d55", "#fff"], vermelho: ["#c62828", "#fff"], preto: ["#111", "#fff"], lilas: ["#9b6bd3", "#fff"], azul: ["#1557b0", "#fff"], branco: ["#f4f4f4", "#111"], laranja: ["#e8710a", "#fff"], rosa: ["#e0569b", "#fff"], cinza: ["#777", "#fff"] };
   const coletes = () => String(cfg().coletes || "").split(/[,;\n]+/).map(x => x.trim()).filter(Boolean);
   const corTime = (t, i) => t.cor || coletes()[i] || "";
+  const bate = nome => !S.q.trim() || norm(nome).includes(norm(S.q));
+  const buscaHtml = ph => `<div class="search">${ICON.search}<input id="q" class="input" placeholder="${ph}" value="${esc(S.q)}" autocomplete="off" type="search"></div>`;
   const refAv = a => a.ref || (a.date || "").slice(0, 7);
   const avulsosDoMes = month => S.avulsos.filter(a => refAv(a) === month).sort((a, b) => (b.date || "").localeCompare(a.date || "") || (a.name || "").localeCompare(b.name || "", "pt-BR"));
 
@@ -489,7 +491,9 @@ img { max-width: 100%; }
     const devendo = st.filter(x => x.s.k !== "ok");
     let shown = st;
     if (S.filter === "pagos") shown = pagos; else if (S.filter === "devendo") shown = devendo;
+    shown = shown.filter(x => bate(x.p.name));
     shown.sort((a, b) => (a.s.k === "ok") - (b.s.k === "ok") || sortName(a.p, b.p));
+    const avsVer = avs.filter(a => bate(a.name));
     const needCfg = !c.quadra && !c.mensalidade;
     return `
       ${needCfg ? `<div class="banner">Defina o valor da quadra e da mensalidade.<button class="btn accent" data-act="settings">Definir</button></div>` : ""}
@@ -513,6 +517,7 @@ img { max-width: 100%; }
         </div>
         <button class="btn ghost" data-act="cobranca" style="flex:1 1 120px">${ICON.copy}Cobrança</button>
       </div>
+      ${buscaHtml("Buscar mensalista ou avulso")}
       <div class="list">
         ${shown.length ? shown.map(({ p, s }) => {
           const sub = s.pay ? `Pagou ${fmtDate(s.pay.paidAt)} · referente a ${monthShort(m)}` : `Referente a ${monthShort(m)}`;
@@ -525,11 +530,11 @@ img { max-width: 100%; }
       <div class="section-title">Avulsos do mês <span class="num">${avs.length} jogo${avs.length === 1 ? "" : "s"} · ${brl(arrecAv)}${avDev.length ? ` · ${avDev.length} devendo` : ""}</span></div>
       ${S.canWrite ? `<button class="btn accent block" data-act="newAvulso">${ICON.plus}Registrar avulso (${brl(c.avulso)} por jogo)</button>` : ""}
       <div class="list">
-        ${avs.length ? avs.map(a => `<button class="row" data-avulso="${esc(a.id)}">
+        ${avsVer.length ? avsVer.map(a => `<button class="row" data-avulso="${esc(a.id)}">
           <span class="pos" style="width:46px;font-size:15px">${fmtDateShort(a.date)}</span>
           <span class="main"><div class="name">${esc(a.name)}</div><div class="sub num">${brl(a.amount)}${a.paid ? " · " + esc(a.method || "") : ""} · referente a ${monthShort(refAv(a))}</div></span>
           <span class="pill ${a.paid ? "ok" : "bad"}">${a.paid ? "Pago" : "Devendo"}</span></button>`).join("")
-        : `<div class="empty">Nenhum jogo avulso em ${monthLabel(m).toLowerCase()}. Quem paga por jogo entra aqui.</div>`}
+        : `<div class="empty">${avs.length ? "Nenhum avulso com esse nome." : `Nenhum jogo avulso em ${monthLabel(m).toLowerCase()}. Quem paga por jogo entra aqui.`}</div>`}
       </div>`;
   }
 
@@ -601,14 +606,15 @@ img { max-width: 100%; }
           <span class="main"><div class="name">${esc(p.name)}</div>${fil ? `<div class="sub num ${i >= cut ? "next" : ""}">${fil}</div>` : ""}</span>
           ${tag}</button>`;
     };
-    const sections = [0, 1, 2, 3].map(g => { const ps = act.filter(p => prio(p).g === g); return ps.length ? `<div class="section-title">${GR[g]} <span>${ps.length}</span></div><div class="list">${ps.map(row).join("")}</div>` : ""; }).join("");
+    const sections = [0, 1, 2, 3].map(g => { const ps = act.filter(p => prio(p).g === g && bate(p.name)); return ps.length ? `<div class="section-title">${GR[g]} <span>${ps.length}</span></div><div class="list">${ps.map(row).join("")}</div>` : ""; }).join("");
     return `
       ${S.canWrite && avPres ? `<button class="btn ghost block" data-act="newAvulso">${ICON.plus}Cobrar ${brl(cfg().avulso)} dos ${avPres} avulsos de hoje</button>` : ""}
       ${last ? `<button class="btn accent block" data-act="showLast">Ver último sorteio · ${esc(S.sorteio.label || "")}</button>` : ""}
       <div class="btnrow"><button class="btn primary" data-act="zapLista">${ICON.copy}Enviar lista no WhatsApp</button><button class="btn ghost" data-act="zapColar">${ICON.check}Colar confirmações</button></div>
       <div class="card" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><div style="flex:1 1 200px;font-size:14px">Quem pagou a mensalidade já entra marcado. Se alguém faltar, desmarque. Avulsos e crianças ficam no fim da fila.</div>
         <button class="btn ghost" style="min-height:38px;padding:6px 14px" data-act="${n ? "none" : "all"}">${n ? "Desmarcar todos" : "Marcar todos"}</button></div>
-      ${act.length ? sections : `<div class="empty"><b>Nenhum jogador</b>Cadastre o elenco na aba Jogadores.</div>`}`;
+      ${buscaHtml("Buscar jogador")}
+      ${act.length ? sections || `<div class="empty">Ninguém com esse nome.</div>` : `<div class="empty"><b>Nenhum jogador</b>Cadastre o elenco na aba Jogadores.</div>`}`;
   }
 
   // ---------- folhas ----------
@@ -1404,7 +1410,7 @@ img { max-width: 100%; }
   // ---------- eventos de UI ----------
   document.querySelector("nav.tabs").addEventListener("click", e => {
     const b = e.target.closest("[data-tab]"); if (!b) return;
-    S.tab = b.dataset.tab; store.set("tab", S.tab); S._focusQ = false; render(); window.scrollTo(0, 0);
+    S.tab = b.dataset.tab; store.set("tab", S.tab); S._focusQ = false; S.q = ""; render(); window.scrollTo(0, 0);
   });
   $("#btnSettings").onclick = sheetSettings;
   $("#btnColab").onclick = () => sheetColab();
