@@ -299,7 +299,7 @@ img { max-width: 100%; }
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="config.js?v=202611051712"></script>
+<script src="config.js?v=202611061443"></script>
 <script>
 (function () {
   "use strict";
@@ -339,7 +339,7 @@ img { max-width: 100%; }
   }
   applyTheme(store.get("tema", "verde"));
   // Atualização automática: ao abrir ou voltar ao app, confere se há versão nova no site e recarrega.
-  const VERSAO = "202611051712";
+  const VERSAO = "202611061443";
   async function checaVersao() {
     try {
       const r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
@@ -969,6 +969,8 @@ img { max-width: 100%; }
         <div class="chips" id="avWho">${cands.map(p => `<button class="chip" data-w="${esc(p.id)}" aria-pressed="${sel.has(p.id)}">${esc(p.name)}</button>`).join("") || '<span style="color:var(--muted)">Nenhum jogador marcado como avulso. Digite o nome abaixo.</span>'}</div>
         <div style="display:flex;gap:8px"><input id="avName" class="input" placeholder="Visitante: nome completo" autocomplete="off"><button class="btn ghost" id="avAddName">Incluir</button></div>
         <div class="chips" id="avGuests"></div></div>
+      <div class="field"><label for="avBy">Veio através de quem?</label><input id="avBy" class="input" list="avByList" placeholder="Quem trouxe (opcional)" autocomplete="off">
+        <datalist id="avByList">${S.players.slice().sort(sortName).map(x => `<option value="${esc(x.name)}"></option>`).join("")}</datalist></div>
       <button class="toggle" id="avPaid" role="switch" aria-checked="true"><span class="main"><b>Já pagou</b><div style="font-size:13px;color:var(--muted)">Desmarque se ficou devendo</div></span><span class="sw"></span></button>
       <div class="field" id="avMethBox"><span class="lbl">Forma de pagamento</span><div class="chips" id="avMeth">${FORMAS.map(f => `<button class="chip" data-m="${f}" aria-pressed="${f === method}">${f}</button>`).join("")}</div></div>
       <button class="btn primary block" id="avSave">${ICON.check}Registrar</button>`, el => {
@@ -986,11 +988,13 @@ img { max-width: 100%; }
         if (!who.length) { toast("Escolha quem jogou."); return; }
         const amount = parseFloat(($("#avVal", el).value || "0").replace(/\./g, "").replace(",", ".")) || 0;
         const date = $("#avDate", el).value || todayISO();
+        const by = $("#avBy", el).value.trim();
         const btn = $("#avSave", el); btn.disabled = true;
         const ok = await write(async db => {
-          for (const w of who) if (!w.playerId) w.playerId = await garanteAvulso(db, w.name);
+          for (const w of who) if (!w.playerId) w.playerId = await garanteAvulso(db, w.name, by);
+          if (by) for (const w of who) { const pl = playerById(w.playerId); if (pl && !pl.trazidoPor) await db.doc("players/" + pl.id).update({ trazidoPor: by }); }
           if (date === todayISO()) { who.forEach(w => { S.present.add(w.playerId); S.removed.delete(w.playerId); }); saveDay(); }
-          for (const w of who) await db.doc("avulsos/" + uid()).set({ playerId: w.playerId, name: w.name, date, amount, paid, method: paid ? method : "", paidAt: paid ? todayISO() : "", createdAt: new Date().toISOString() });
+          for (const w of who) await db.doc("avulsos/" + uid()).set({ playerId: w.playerId, name: w.name, date, amount, paid, method: paid ? method : "", paidAt: paid ? todayISO() : "", trazidoPor: by, createdAt: new Date().toISOString() });
         }, who.length > 1 ? `${who.length} avulsos registrados` : "Avulso registrado");
         if (ok) closeSheet(); else btn.disabled = false;
       };
@@ -1000,6 +1004,7 @@ img { max-width: 100%; }
     const a = S.avulsos.find(x => x.id === id); if (!a) return;
     openSheet(`${sheetHead(a.name)}
       <div class="card num" style="font-size:16px">Jogo de <b>${fmtDate(a.date)}</b> · ${brl(a.amount)}<br>
+        ${a.trazidoPor ? `Veio através de <b>${esc(a.trazidoPor)}</b><br>` : ""}
         ${a.paid ? `<span class="pill ok">Pago</span> via ${esc(a.method)} em ${fmtDate(a.paidAt)}` : `<span class="pill bad">Devendo</span>`}</div>
       ${S.canWrite ? `<div class="btnrow">
         <button class="btn ${a.paid ? "ghost" : "primary"}" id="aiToggle">${a.paid ? "Marcar como não pago" : ICON.check + "Marcar como pago (" + esc(store.get("method", "Pix")) + ")"}</button></div>
@@ -1022,12 +1027,12 @@ img { max-width: 100%; }
   function nextGame() { const d = new Date(); const alvo = Number(cfg().diaJogo ?? 5); while (d.getDay() !== alvo) d.setDate(d.getDate() + 1); return d; }
   const norm = t => String(t || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
   // Visitante vira cadastro de avulso (sem repetir nome completo) e já entra na lista dos Times.
-  async function garanteAvulso(db, nome) {
+  async function garanteAvulso(db, nome, trazidoPor = "") {
     const nm = String(nome || "").trim().replace(/\s+/g, " "); if (!nm) return null;
     const ja = S.players.find(p => norm(p.name) === norm(nm));
     if (ja) { if (ja.active === false) await db.doc("players/" + ja.id).update({ active: true }); return ja.id; }
     const id = uid();
-    const body = { name: nm, skill: 5, pos: "M", mensalista: false, crianca: false, active: true, phone: "", trazidoPor: "", evangelico: "", igreja: "", obs: "", createdAt: new Date().toISOString() };
+    const body = { name: nm, skill: 5, pos: "M", mensalista: false, crianca: false, active: true, phone: "", trazidoPor, evangelico: "", igreja: "", obs: "", createdAt: new Date().toISOString() };
     await db.doc("players/" + id).set(body);
     if (!playerById(id)) S.players = S.players.concat([Object.assign({ id }, body)]);
     return id;
