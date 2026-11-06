@@ -299,7 +299,7 @@ img { max-width: 100%; }
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="config.js?v=202611061831"></script>
+<script src="config.js?v=202611061834"></script>
 <script>
 (function () {
   "use strict";
@@ -339,7 +339,7 @@ img { max-width: 100%; }
   }
   applyTheme(store.get("tema", "verde"));
   // Atualização automática: ao abrir ou voltar ao app, confere se há versão nova no site e recarrega.
-  const VERSAO = "202611061831";
+  const VERSAO = "202611061834";
   async function checaVersao() {
     try {
       const r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
@@ -492,7 +492,9 @@ img { max-width: 100%; }
     let shown = st;
     if (S.filter === "pagos") shown = pagos; else if (S.filter === "devendo") shown = devendo;
     shown = shown.filter(x => bate(x.p.name));
-    shown.sort((a, b) => (a.s.k === "ok") - (b.s.k === "ok") || sortName(a.p, b.p));
+    // quem pagou fica em cima, na ordem em que pagou; quem deve fica embaixo
+    const ordPag = x => x.s.pay ? (x.s.pay.paidAt || "") + (x.s.pay.createdAt || "") : "";
+    shown.sort((a, b) => (b.s.k === "ok") - (a.s.k === "ok") || ordPag(a).localeCompare(ordPag(b)) || sortName(a.p, b.p));
     const avsVer = avs.filter(a => bate(a.name));
     const needCfg = !c.quadra && !c.mensalidade;
     return `
@@ -897,7 +899,7 @@ img { max-width: 100%; }
     const totGasto = gastos.reduce((a, g) => a + (Number(g.valor) || 0), 0);
     const sugestao = st.ids.length && totGasto ? Math.ceil(totGasto / st.ids.length) : 0;
     const nameOf = id => (playerById(id) || {}).name || people[id].guest || "?";
-    ids.sort((a, b) => (people[a].paid === true) - (people[b].paid === true) || nameOf(a).localeCompare(nameOf(b), "pt-BR"));
+    ids.sort((a, b) => (people[b].paid === true) - (people[a].paid === true) || (people[a].paid ? (people[a].paidAt || "") + (people[a].at || "") : "").localeCompare(people[b].paid ? (people[b].paidAt || "") + (people[b].at || "") : "") || nameOf(a).localeCompare(nameOf(b), "pt-BR"));
     openSheet(`${sheetHead(ev.name)}
       <div class="card"><div class="meter-label num" style="margin:0"><span>${fmtDate(ev.date)} · <strong>${brl(ev.price)}</strong> por pessoa</span><span>${st.paid.length}/${st.ids.length} pagos</span></div>
         <div class="meter"><i style="width:${st.ids.length ? st.paid.length / st.ids.length * 100 : 0}%"></i></div>
@@ -963,7 +965,7 @@ img { max-width: 100%; }
         const pBtn = e.target.closest("[data-epay]");
         if (pBtn) {
           const id = pBtn.dataset.epay; const cur = people[id];
-          const np = Object.assign({}, people, { [id]: cur.paid ? { paid: false, guest: cur.guest } : Object.assign({}, cur, { paid: true, paidAt: todayISO(), method: store.get("method", "Pix"), amount: Number(ev.price) || 0 }) });
+          const np = Object.assign({}, people, { [id]: cur.paid ? { paid: false, guest: cur.guest } : Object.assign({}, cur, { paid: true, paidAt: todayISO(), at: new Date().toISOString(), method: store.get("method", "Pix"), amount: Number(ev.price) || 0 }) });
           if (await save({ people: np })) reopen(); return;
         }
         const rm = e.target.closest("[data-erm]");
