@@ -299,7 +299,7 @@ img { max-width: 100%; }
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="config.js?v=202611061752"></script>
+<script src="config.js?v=202611061753"></script>
 <script>
 (function () {
   "use strict";
@@ -339,7 +339,7 @@ img { max-width: 100%; }
   }
   applyTheme(store.get("tema", "verde"));
   // Atualização automática: ao abrir ou voltar ao app, confere se há versão nova no site e recarrega.
-  const VERSAO = "202611061752";
+  const VERSAO = "202611061753";
   async function checaVersao() {
     try {
       const r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
@@ -1395,7 +1395,36 @@ img { max-width: 100%; }
     S.canWrite = S.isAdmin || perfil.papel !== "leitor";
     const db = fdb; S.db = db;
     const sheetOpenFor = () => $("#sheet") != null;
-    let juntou = false;
+    let juntou = false, migrou = false;
+    // Migração única (pedido do Ramon, 06/11/2026): pagamentos de mensalidade de outubro/2026 passam a ser referentes a novembro/2026.
+    // A data do pagamento é mantida. Outubro fica em aberto para essas pessoas (mensalista desde outubro).
+    async function migraOutNov() {
+      if (migrou || !S.isAdmin) return; migrou = true;
+      try {
+        const flag = await db.doc("config/migracoes").get({ source: "server" });
+        if (flag.exists && flag.data().out2nov) return;
+        const [pg, pl] = await Promise.all([db.collection("payments").get({ source: "server" }), db.collection("players").get({ source: "server" })]);
+        const pays = pg.docs.map(d => Object.assign({}, d.data(), { id: d.id }));
+        const players = Object.fromEntries(pl.docs.map(d => [d.id, d.data()]));
+        const batch = db.batch(); const movidos = [], conflitos = [];
+        pays.filter(x => x.month === "2026-10").forEach(x => {
+          const nome = (players[x.playerId] || {}).name || "jogador excluído";
+          if (pays.some(y => y.playerId === x.playerId && y.month === "2026-11")) { conflitos.push(nome); return; }
+          const { id, ...dados } = x;
+          batch.set(db.doc("payments/2026-11_" + x.playerId), Object.assign(dados, { month: "2026-11", movidoDe: "2026-10" }));
+          batch.delete(db.doc("payments/" + id));
+          if (players[x.playerId] && !players[x.playerId].desde) batch.update(db.doc("players/" + x.playerId), { desde: "2026-10" });
+          movidos.push(nome);
+        });
+        batch.set(db.doc("config/migracoes"), { out2nov: true, at: new Date().toISOString(), movidos, conflitos }, { merge: true });
+        await batch.commit();
+        if (movidos.length || conflitos.length) setTimeout(() => openSheet(`${sheetHead("Pagamentos de outubro")}
+          <p style="margin:0;font-size:15px">Os pagamentos que estavam em outubro agora são <b>referentes a novembro</b>. A data em que pagaram continua a mesma. Outubro ficou em aberto para você marcar depois.</p>
+          ${movidos.length ? `<div class="card" style="font-size:15px"><span class="pill ok">${movidos.length} passaram para novembro</span><div style="margin-top:8px">${movidos.map(esc).join(", ")}</div></div>` : ""}
+          ${conflitos.length ? `<div class="card" style="font-size:15px"><span class="pill warn">${conflitos.length} não mudaram</span><div style="margin-top:8px">${conflitos.map(esc).join(", ")}</div><div style="color:var(--muted);margin-top:6px">Já tinham pagamento em novembro, então o de outubro ficou em outubro.</div></div>` : ""}
+          <button class="btn primary block" data-close>Entendi</button>`), 600);
+      } catch (e) { migrou = false; }
+    }
     // Junta jogadores com o mesmo nome completo: fica o cadastro com mais dados e os pagamentos/avulsos/eventos passam para ele.
     async function juntaDuplicados() {
       if (juntou || !S.canWrite) return;
@@ -1443,7 +1472,7 @@ img { max-width: 100%; }
     let rq = 0; const renderLogo = () => { if (!rq) rq = requestAnimationFrame(() => { rq = 0; if (!sheetOpenFor()) render(); }); };
     const sub = (ref, onDocs, key) => unsubs.push(ref.onSnapshot(snap => {
       onDocs(snap); S.loaded[key] = true;
-      if (key === "players") juntaDuplicados();
+      if (key === "players") { juntaDuplicados(); migraOutNov(); }
       if (!sheetOpenFor()) renderLogo();
     }, () => { S.loaded[key] = true; render(); }));
     sub(db.collection("players"), s => { S.players = s.docs.map(d => Object.assign({ id: d.id }, d.data())); }, "players");
